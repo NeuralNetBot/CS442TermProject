@@ -48,6 +48,10 @@ class Camera {
         this.perspective = perspective;
     }
     
+    getPosition() {
+        return this.position;
+    }
+    
     getMatrix() {
 
         let cameramat = Mat4.translation(this.position.x, this.position.y, this.position.z).mul(this.rot);

@@ -1,5 +1,5 @@
 
-const VERTEX_STRIDE = 28;
+const VERTEX_STRIDE = 32;
 
 class Mesh {
     /** 
@@ -83,15 +83,16 @@ class Mesh {
         let hdepth = depth / 2.0;
 
         let verts = [
-            hwidth, -hheight, -hdepth,      1.0, 0.0, 0.0, 1.0,
-            -hwidth, -hheight, -hdepth,     0.0, 1.0, 0.0, 1.0,
-            -hwidth, hheight, -hdepth,      0.0, 0.0, 1.0, 1.0,
-            hwidth, hheight, -hdepth,       1.0, 1.0, 0.0, 1.0,
+            
+            hwidth, -hheight, -hdepth,      0.0, 0.0, 0.0, 1.0, 0.0,
+            -hwidth, -hheight, -hdepth,     0.0, 0.0, 0.0, 1.0, 0.0,
+            -hwidth, hheight, -hdepth,      0.0, 0.0, 0.0, 1.0, 0.0,
+            hwidth, hheight, -hdepth,       0.0, 0.0, 0.0, 1.0, 0.0,
 
-            hwidth, -hheight, hdepth,       1.0, 0.0, 1.0, 1.0,
-            -hwidth, -hheight, hdepth,      0.0, 1.0, 1.0, 1.0,
-            -hwidth, hheight, hdepth,       0.5, 0.5, 1.0, 1.0,
-            hwidth, hheight, hdepth,        1.0, 1.0, 0.5, 1.0,
+            hwidth, -hheight, hdepth,       0.0, 0.0, 0.0, 1.0, 0.0,
+            -hwidth, -hheight, hdepth,      0.0, 0.0, 0.0, 1.0, 0.0,
+            -hwidth, hheight, hdepth,       0.0, 0.0, 0.0, 1.0, 0.0,
+            hwidth, hheight, hdepth,        0.0, 0.0, 0.0, 1.0, 0.0
         ];
 
         let indis = [
@@ -117,6 +118,35 @@ class Mesh {
         return new Mesh( gl, program, verts, indis );
     }
 
+    static sphere( gl, program, subdivs ) {
+        
+        let verts = []
+        let indis = []
+        
+        for(let y = 0.0; y <= subdivs; y++)
+        {
+            let ypos = Math.cos((y * Math.PI) / subdivs);
+            let ys = Math.sin((y * Math.PI) / subdivs);
+            for(let x = 0.0; x <= subdivs; x++)
+            {
+                let xpos = Math.cos(x * 2 * Math.PI / subdivs) * ys;
+                let zpos = Math.sin(x * 2 * Math.PI / subdivs) * ys;
+                verts.push(xpos, ypos, zpos, xpos, ypos, zpos);//normals same as position in this case
+                verts.push(1 - (x / subdivs), (y / subdivs));
+            }
+        }
+        
+        for(let y = 0.0; y < subdivs; y++)
+        {
+            for(let x = 0.0; x < subdivs; x++)
+            {
+                const first = y * (subdivs + 1) + x;
+                const second = first + subdivs + 1;
+                indis.push(first + 1, second, first, first + 1, second + 1, second);
+            }
+        }
+        return new Mesh( gl, program, verts, indis );    
+    }
 
     /**
      * Render the mesh. Does NOT preserve array/index buffer or program bindings! 
@@ -125,7 +155,7 @@ class Mesh {
      */
     render( gl ) {
         gl.cullFace( gl.BACK );
-        gl.frontFace( gl.CW );
+        gl.frontFace( gl.CCW );
         gl.enable( gl.CULL_FACE );
         
         gl.useProgram( this.program );
@@ -134,17 +164,23 @@ class Mesh {
 
         Mesh.set_vertex_attrib_to_buffer( 
             gl, this.program, 
-            "coordinates", 
+            "position", 
             this.verts, 3, 
             gl.FLOAT, false, VERTEX_STRIDE, 0 
         );
 
+        Mesh.set_vertex_attrib_to_buffer( 
+            gl, this.program, 
+            "normal", 
+            this.verts, 3, 
+            gl.FLOAT, false, VERTEX_STRIDE, 12 
+        );
 
         Mesh.set_vertex_attrib_to_buffer( 
             gl, this.program, 
-            "color", 
-            this.verts, 4, 
-            gl.FLOAT, false, VERTEX_STRIDE, 12
+            "uv", 
+            this.verts, 2, 
+            gl.FLOAT, false, VERTEX_STRIDE, 24
         );
 
         gl.drawElements( gl.TRIANGLES, this.n_indis, gl.UNSIGNED_SHORT, 0 );
@@ -157,23 +193,64 @@ class Mesh {
      * @param {string} text
      */
     static from_obj_text( gl, program, text ) {
-        let lverts = [];
-        let lindices = [];
+        let positions = [];
+        let normals = [];
+        let uvs = [];
+        let indices = [];
         const lines = text.split('\n');
         lines.forEach( function (line, i) {
             let linesplit = line.split(' ');
             if(line[0] === 'f') {
-                const topush = linesplit.slice(1, 4).map(Number).map(num => num - 1).reverse();
-                lindices.push(...topush);
+                const numbers = linesplit.slice(1, 4);
+
+                for (let i = 0; i < numbers.length; i++) {
+                  const numberParts = numbers[i].split('/');
+                  for (let j = 0; j < numberParts.length; j++) {
+                    indices.push(Number(numberParts[j])-1);
+                  }
+                }
             }
-            if(line[0] === 'v') {
+            else if(line[0] === 'v' && line[1] === 'n') {
                 const topush = linesplit.slice(1, 4).map(Number);
-                lverts.push(...topush);
-                lverts.push(...topush);//[Math.random(),Math.random(),Math.random(),1]);//append colors
-                lverts.push(1);
+                normals.push(...topush);
+            }
+            else if(line[0] === 'v' && line[1] === 't') {
+                const topush = linesplit.slice(1, 3).map(Number);
+                uvs.push(...topush);
+            }
+            else if(line[0] === 'v') {
+                const topush = linesplit.slice(1, 4).map(Number);
+                positions.push(...topush);
             }
         });
-        return new Mesh( gl, program, lverts, lindices);
+        
+        // iterate 3 at a time as there will be 3 indices, position normal and uv indices, then just need to combine them
+        
+        let finalverts = [];
+        let finalindices = [];
+        
+        for (let i = 0; i < indices.length; i+=3) {
+            finalindices.push(i/3);
+
+            
+            const posindex = indices[i]*3;
+            const normalindex = indices[i+2]*3;
+            const uvindex = indices[i+1]*2;
+            
+            finalverts.push(positions[posindex]);
+            finalverts.push(positions[posindex+1]);
+            finalverts.push(positions[posindex+2]);
+            
+            finalverts.push(normals[normalindex]);
+            finalverts.push(normals[normalindex+1]);
+            finalverts.push(normals[normalindex+2]);
+            
+            finalverts.push(uvs[uvindex]);
+            finalverts.push(1-uvs[uvindex+1]); //y uv flip
+        }
+       
+        
+        return new Mesh( gl, program, finalverts, finalindices);
     }
 
     /**
