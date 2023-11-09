@@ -10,13 +10,12 @@ class Mesh {
      * @param {number[]} vertices
      * @param {number[]} indices
     */
-    constructor( gl, program, vertices, indices ) {
+    constructor( gl, vertices, indices ) {
         this.verts = Mesh.create_and_load_vertex_buffer( gl, vertices, gl.STATIC_DRAW );
         this.indis = Mesh.create_and_load_elements_buffer( gl, indices, gl.STATIC_DRAW );
 
         this.n_verts = vertices.length;
         this.n_indis = indices.length;
-        this.program = program;
     }
 
 
@@ -77,7 +76,7 @@ class Mesh {
      * @param {number} depth 
      */
 
-    static box( gl, program, width, height, depth ) {
+    static box( gl, width, height, depth ) {
         let hwidth = width / 2.0;
         let hheight = height / 2.0;
         let hdepth = depth / 2.0;
@@ -115,10 +114,10 @@ class Mesh {
             4, 0, 1, 1, 5, 4,
         ];
 
-        return new Mesh( gl, program, verts, indis );
+        return new Mesh( gl, verts, indis );
     }
 
-    static sphere( gl, program, subdivs ) {
+    static sphere( gl, subdivs ) {
         
         let verts = []
         let indis = []
@@ -145,7 +144,7 @@ class Mesh {
                 indis.push(first + 1, second, first, first + 1, second + 1, second);
             }
         }
-        return new Mesh( gl, program, verts, indis );    
+        return new Mesh( gl, verts, indis );    
     }
 
     /**
@@ -153,31 +152,30 @@ class Mesh {
      * 
      * @param {WebGLRenderingContext} gl 
      */
-    render( gl ) {
+    render( gl, program ) {
         gl.cullFace( gl.BACK );
         gl.frontFace( gl.CCW );
         gl.enable( gl.CULL_FACE );
         
-        gl.useProgram( this.program );
         gl.bindBuffer( gl.ARRAY_BUFFER, this.verts );
         gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, this.indis );
 
         Mesh.set_vertex_attrib_to_buffer( 
-            gl, this.program, 
+            gl, program, 
             "position", 
             this.verts, 3, 
             gl.FLOAT, false, VERTEX_STRIDE, 0 
         );
 
         Mesh.set_vertex_attrib_to_buffer( 
-            gl, this.program, 
+            gl, program, 
             "normal", 
             this.verts, 3, 
             gl.FLOAT, false, VERTEX_STRIDE, 12 
         );
 
         Mesh.set_vertex_attrib_to_buffer( 
-            gl, this.program, 
+            gl, program, 
             "uv", 
             this.verts, 2, 
             gl.FLOAT, false, VERTEX_STRIDE, 24
@@ -192,7 +190,7 @@ class Mesh {
      * @param {WebGLProgram} program
      * @param {string} text
      */
-    static from_obj_text( gl, program, text ) {
+    static from_obj_text( gl, text ) {
         let positions = [];
         let normals = [];
         let uvs = [];
@@ -250,17 +248,16 @@ class Mesh {
         }
        
         
-        return new Mesh( gl, program, finalverts, finalindices);
+        return new Mesh( gl, finalverts, finalindices);
     }
 
     /**
      * Asynchronously load the obj file as a mesh.
      * @param {WebGLRenderingContext} gl
      * @param {string} file_name 
-     * @param {WebGLProgram} program
      * @param {function} f the function to call and give mesh to when finished.
      */
-    static from_obj_file( gl, file_name, program, f ) {
+    static from_obj_file( gl, file_name, f ) {
         let request = new XMLHttpRequest();
         
         // the function that will be called when the file is being loaded
@@ -273,7 +270,7 @@ class Mesh {
             }
 
             // now we know the file exists and is ready
-            let loaded_mesh = Mesh.from_obj_text( gl, program, request.responseText );
+            let loaded_mesh = Mesh.from_obj_text( gl, request.responseText );
 
             console.log( 'loaded ', file_name );
             f( loaded_mesh );

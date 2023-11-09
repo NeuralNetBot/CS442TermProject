@@ -4,7 +4,7 @@ let canvas = document.getElementById( 'the-canvas' );
 let gl = canvas.getContext( 'webgl2' );
 
 //inital resize
-let depthFramebufferInfo = null;
+let depthFrameBufferInfo = null;
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
@@ -85,7 +85,7 @@ let fragment_source =
             vec3 light_dir = normalize(light_positions[i] - aPosition);
             final += calcLight(light_dir, vec3(light_colors[i])) * atten;
         }
-        f_color = vec4(final, 1.0) * texture(tex_0, aUV);
+        f_color = /*vec4(final, 1.0) **/ texture(tex_0, aUV);
     }
 `;
 
@@ -109,10 +109,22 @@ let depth_vertex_source =
 let depth_fragment_source = 
 `   #version 300 es
     precision mediump float;
+    
+    uniform vec3 view_pos;
 
     void main( void )
     {
         gl_FragDepth = gl_FragCoord.z;
+    }
+`;
+
+let light_culling_comp_source = 
+`   #version 300 es
+
+    uniform image2D depthimage;
+
+    void main() {
+        
     }
 `;
 
@@ -129,7 +141,7 @@ let last_update = performance.now();
 
 //let objmesh = null;
 //Mesh.from_obj_file( gl, "untitled.obj", shader_program, mesh_loaded );
-let sphere = Mesh.sphere( gl, shader_program, 16 );
+let sphere = Mesh.sphere( gl, 16 );
 
 let perspective = Mat4.perspective(Math.PI / 2, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 100);
 camera = new Camera(new Vec4(0, 0, 2, 0), 0, 0, 0, perspective);
@@ -193,8 +205,6 @@ function mesh_loaded(mesh) {
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-
-    gl.viewport(0, 0, canvas.width, canvas.height);
     
     //reuild the perspective matrix as well
     
@@ -203,12 +213,14 @@ function resizeCanvas() {
     }
     
     //and depth frame buffer
-    if (depthFramebufferInfo) {
-        gl.deleteFramebuffer(depthFramebufferInfo.framebuffer);
-        gl.deleteTexture(depthFramebufferInfo.texture);
+    if (depthFrameBufferInfo) {
+        gl.deleteFramebuffer(depthFrameBufferInfo.framebuffer);
+        gl.deleteTexture(depthFrameBufferInfo.texture);
     }
     
-    depthFrameBufferInfo = createDepthFramebuffer(gl, window.innerWidth, window.innerHeight);
+    depthFrameBufferInfo = createDepthFramebuffer(gl, canvas.width, canvas.height);
+
+    gl.viewport(0, 0, canvas.width, canvas.height);
 }
 
 
@@ -226,7 +238,7 @@ function renderObjects(now, current_shader) {
     gl.uniformMatrix4fv( gl.getUniformLocation( current_shader, "view_projection" ), true,  cameramat.data);
     
     if (sphere) {
-        sphere.render(gl);
+        sphere.render(gl, current_shader);
     }
     
 }
@@ -256,15 +268,19 @@ function render(now) {
     if (Input.getKeyState('t')) { Input.lockMouse(); }
     if (Input.getKeyState('y')) { Input.unlockMouse(); }
     
-
-    gl.bindTexture( gl.TEXTURE_2D, tex );
+    gl.bindTexture( gl.TEXTURE_2D, null );
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, depthFrameBufferInfo.framebuffer);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     depthshader.use();
     renderObjects(now, depthshader.getProgram());
 
+    gl.bindTexture( gl.TEXTURE_2D, depthFrameBufferInfo.texture );
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     mainshader.use();
     renderObjects(now, mainshader.getProgram());
