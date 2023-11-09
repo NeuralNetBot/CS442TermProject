@@ -4,6 +4,7 @@ let canvas = document.getElementById( 'the-canvas' );
 let gl = canvas.getContext( 'webgl2' );
 
 //inital resize
+let depthFramebufferInfo = null;
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
@@ -88,17 +89,43 @@ let fragment_source =
     }
 `;
 
-let shader_program = Shader.createShader(gl, vertex_source, fragment_source);
+let depth_vertex_source = 
+`   #version 300 es
+    precision mediump float;
+
+    in vec3 position;
+    in vec3 normal;
+    in vec2 uv;
+    
+    uniform mat4 model;
+    uniform mat4 view_projection;
+    
+    void main( void )
+    {
+        gl_Position = (view_projection * model) * vec4( position, 1.0 );
+    }
+`;
+
+let depth_fragment_source = 
+`   #version 300 es
+    precision mediump float;
+
+    void main( void )
+    {
+        gl_FragDepth = gl_FragCoord.z;
+    }
+`;
+
+let mainshader = Shader.createShader(gl, vertex_source, fragment_source);
+mainshader.use();
+let shader_program = mainshader.getProgram();
+
+let depthshader = Shader.createShader(gl, depth_vertex_source, depth_fragment_source);
 
 gl.clearColor( 0.0, 0.0, 0.0, 1 );
 gl.enable( gl.DEPTH_TEST );
 
 let last_update = performance.now();
-let rotationxz = 0.0;
-
-
-const modelloc = gl.getUniformLocation( shader_program, "model" );
-const vploc = gl.getUniformLocation( shader_program, "view_projection" );
 
 //let objmesh = null;
 //Mesh.from_obj_file( gl, "untitled.obj", shader_program, mesh_loaded );
@@ -138,8 +165,6 @@ gl.uniform4fv( gl.getUniformLocation( shader_program, "light_colors" ), new Floa
 Input.setMouseHandler(handleMouse);
 Input.init();
 
-requestAnimationFrame(render);
-
 let tex = gl.createTexture();
 gl.activeTexture(gl.TEXTURE0);
 gl.bindTexture( gl.TEXTURE_2D, tex );
@@ -148,6 +173,8 @@ gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
 const image = new Image();
 image.src = "metal_scale.png";
+
+requestAnimationFrame(render);
 
 image.onload = function () {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
@@ -174,29 +201,43 @@ function resizeCanvas() {
     if(typeof camera !== 'undefined' && camera !== null) {
         camera.setPerspectiveMat(Mat4.perspective(Math.PI / 2, canvas.width / canvas.height, 0.1, 100));
     }
+    
+    //and depth frame buffer
+    if (depthFramebufferInfo) {
+        gl.deleteFramebuffer(depthFramebufferInfo.framebuffer);
+        gl.deleteTexture(depthFramebufferInfo.texture);
+    }
+    
+    depthFrameBufferInfo = createDepthFramebuffer(gl, window.innerWidth, window.innerHeight);
 }
 
+
+function renderObjects(now, current_shader) {
+    
+    let mxz = Mat4.rotation_xz( 0.0 );
+    let tran = Mat4.translation(0.0, 0.0, 0.0);
+    
+    let model = tran.mul(mxz);
+    gl.uniformMatrix4fv( gl.getUniformLocation( current_shader, "model" ), true, model.data );
+    
+    let cameramat = camera.getMatrix();
+    let viewpos = camera.getPosition();
+    gl.uniform3f( gl.getUniformLocation( current_shader, "view_pos" ), viewpos.x, viewpos.y, viewpos.z );
+    gl.uniformMatrix4fv( gl.getUniformLocation( current_shader, "view_projection" ), true,  cameramat.data);
+    
+    if (sphere) {
+        sphere.render(gl);
+    }
+    
+}
 
 function render(now) {
  
     let time_delta = ( now - last_update ) / 1000;
     last_update = now;
 
-    rotationxz += -0.125 * time_delta;
-    rotationxz %= 1.0;
-
-    gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    let mxz = Mat4.rotation_xz( 0.0 );
-    let tran = Mat4.translation(0.0, 0.0, 0.0);
-    
-    let model = tran.mul(mxz);
-    
-    gl.uniformMatrix4fv( modelloc, true, model.data );
-    
     const rotspeed = 0.125;
     const movespeed = 3;
-    
     if (Input.getKeyState('ArrowLeft'))  { camera.rotateBy(0, 0,  rotspeed * time_delta); }
     if (Input.getKeyState('ArrowRight')) { camera.rotateBy(0, 0, -rotspeed * time_delta); }
     if (Input.getKeyState('ArrowUp'))    { camera.rotateBy(0,  rotspeed * time_delta, 0); }
@@ -215,14 +256,18 @@ function render(now) {
     if (Input.getKeyState('t')) { Input.lockMouse(); }
     if (Input.getKeyState('y')) { Input.unlockMouse(); }
     
-    let cameramat = camera.getMatrix();
-    
-    let viewpos = camera.getPosition();
-    gl.uniform3f( gl.getUniformLocation( shader_program, "view_pos" ), viewpos.x, viewpos.y, viewpos.z );
-    gl.uniformMatrix4fv( vploc, true,  cameramat.data);
 
-    if (sphere) {
-        sphere.render(gl);
-    }
+    gl.bindTexture( gl.TEXTURE_2D, tex );
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, depthFrameBufferInfo.framebuffer);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    depthshader.use();
+    renderObjects(now, depthshader.getProgram());
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    mainshader.use();
+    renderObjects(now, mainshader.getProgram());
+
     requestAnimationFrame(render);
 }

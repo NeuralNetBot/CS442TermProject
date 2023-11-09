@@ -1,8 +1,12 @@
 
 class Shader
 {
-    static createShader( gl, vertex_source, fragment_source)
-    {
+    constructor(gl, program) {
+        this.gl = gl;
+        this.program = program;
+    }
+    
+    static createShader( gl, vertex_source, fragment_source) {
         let vert_shader = gl.createShader( gl.VERTEX_SHADER );
         gl.shaderSource( vert_shader, vertex_source );
         gl.compileShader( vert_shader );
@@ -28,13 +32,11 @@ class Shader
         if (!gl.getProgramParameter(shader_program, gl.LINK_STATUS)) {
             console.error("Unable to initialize the shader program: " + gl.getProgramInfoLog(shader_program));
         }
-
-        gl.useProgram( shader_program );
-        return shader_program;
+        
+        return new Shader(gl, shader_program);
     }
 
-    static createComputeShader(gl, source)
-    {
+    static createComputeShader(gl, source) {
         const compute_shader = gl.createShader(gl.COMPUTE_SHADER);
         gl.shaderSource(compute_shader, source);
         gl.compileShader(compute_shader);
@@ -51,12 +53,19 @@ class Shader
             console.error("Unable to initialize the shader program: " + gl.getProgramInfoLog(compute_program));
         }
         
-        return compute_program;
+        return new Shader(gl, compute_program);
     }
     
-    static dispatchCompute(gl, compute_program)
-    {
-        gl.useProgram(computeProgram);
-        gl.dispatchCompute(x, y, z);
+    dispatchCompute(x, y, z) {
+        this.gl.useProgram(this.program);
+        this.gl.dispatchCompute(x, y, z);
+    }
+    
+    use() {
+        this.gl.useProgram(this.program);
+    }
+    
+    getProgram() {
+        return this.program;
     }
 }
