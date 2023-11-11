@@ -24,3 +24,22 @@ function createDepthFramebuffer(gl, width, height) {
 
     return { framebuffer: depthFramebuffer, texture: depthTexture };
 }
+
+function loadTexture(gl, path, callback) {
+    let tex = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture( gl.TEXTURE_2D, tex );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    
+    const image = new Image();
+    image.src = path;
+
+    image.onload = function () {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        gl.generateMipmap(gl.TEXTURE_2D);
+        callback();
+    };
+    
+    return tex;
+}

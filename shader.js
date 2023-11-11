@@ -35,30 +35,13 @@ class Shader
         
         return new Shader(gl, shader_program);
     }
+    //a fake compute shader
+    static createComputeShader(gl, vertex_source, fragment_source, size_x, size_y) {
 
-    static createComputeShader(gl, source) {
-        const compute_shader = gl.createShader(gl.COMPUTE_SHADER);
-        gl.shaderSource(compute_shader, source);
-        gl.compileShader(compute_shader);
-        
-        if (!gl.getShaderParameter(compute_shader, gl.COMPILE_STATUS)) {
-            console.error("An error occurred compiling the shader: " + gl.getShaderInfoLog(compute_shader));
-        }
-        
-        const compute_program = gl.createProgram();
-        gl.attachShader(compute_program, computeShader);
-        gl.linkProgram(compute_program);
-
-        if (!gl.getProgramParameter(compute_program, gl.LINK_STATUS)) {
-            console.error("Unable to initialize the shader program: " + gl.getProgramInfoLog(compute_program));
-        }
-        
-        return new Shader(gl, compute_program);
     }
     
-    dispatchCompute(x, y, z) {
+    dispatchCompute() {
         this.gl.useProgram(this.program);
-        this.gl.dispatchCompute(x, y, z);
     }
     
     use() {
