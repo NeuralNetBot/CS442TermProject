@@ -2,10 +2,10 @@ let canvas = document.getElementById( 'the-canvas' );
 
 /** @type {WebGL2RenderingContext} */
 let gl = canvas.getContext( 'webgl2' );
-console.log(gl);
 
 //inital resize
 let depthFrameBufferInfo = null;
+let light_cull_shader = null;
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
@@ -134,25 +134,38 @@ let light_culling_comp_vertex_source =
 `   #version 300 es
     precision mediump float;
     
-    in vec2 position;
+    in vec3 position;
     out vec2 aPosition;
 
     void main() {
-        aPosition = position;
-        gl_Position = vec4(position, 0.0, 1.0);
+        aPosition = position.xy;
+        gl_Position = vec4(position, 1.0);
     }
 `;
 let light_culling_comp_fragment_source = 
 `   #version 300 es
     precision mediump float;
 
+    const int TILE_SIZE = 16;
+
     in vec2 aPosition;
 
-    uniform image2D depthimage;
+    uniform sampler2D depthimage;
     uniform vec2 size;
 
     void main() {
-        vec2 invoc = (aPositon + 1.0) * size / 2.0;
+        vec2 invoc = (aPosition + 1.0) / 2.0 * size;
+        
+        float maxDepth = 0.0;
+        float minDepth = 1.0;
+        
+        for(int x = 0; x < TILE_SIZE; x++) {
+            for(int y = 0; y < TILE_SIZE; y++) {
+                float depth = texture(depthimage, (invoc * float(TILE_SIZE)) + vec2(x, y) ).r;
+                maxDepth = max(maxDepth, depth);
+                minDepth = min(minDepth, depth);
+            }    
+        }
     }
 `;
 
@@ -162,8 +175,9 @@ let shader_program = mainshader.getProgram();
 
 let depthshader = Shader.createShader(gl, depth_vertex_source, depth_fragment_source);
 
-
-//let lightcullshader = Shader.createComputeShader(gl, light_culling_comp_source);
+let tilecount_x = Math.ceil(canvas.width / 16);
+let tilecount_y = Math.ceil(canvas.height / 16);
+light_cull_shader = new ComputeShader(gl, Shader.createShader(gl, light_culling_comp_vertex_source, light_culling_comp_fragment_source), tilecount_x, tilecount_y);
 
 gl.clearColor( 0.0, 0.0, 0.0, 1 );
 gl.enable( gl.DEPTH_TEST );
@@ -237,6 +251,11 @@ function resizeCanvas() {
     }
     
     depthFrameBufferInfo = createDepthFramebuffer(gl, canvas.width, canvas.height);
+    if(light_cull_shader) {
+        tilecount_x = Math.ceil(canvas.width / 16);
+        tilecount_y = Math.ceil(canvas.height / 16);
+        light_cull_shader.rebuild(tilecount_x, tilecount_y);
+    }
 
     gl.viewport(0, 0, canvas.width, canvas.height);
 }
@@ -295,6 +314,9 @@ function render(now) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     depthshader.use();
     renderObjects(now, depthshader.getProgram());
+
+    gl.bindTexture( gl.TEXTURE_2D, depthFrameBufferInfo.texture);
+    light_cull_shader.dispatch();
 
 
     //main pass

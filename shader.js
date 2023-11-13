@@ -35,14 +35,6 @@ class Shader
         
         return new Shader(gl, shader_program);
     }
-    //a fake compute shader
-    static createComputeShader(gl, vertex_source, fragment_source, size_x, size_y) {
-
-    }
-    
-    dispatchCompute() {
-        this.gl.useProgram(this.program);
-    }
     
     use() {
         this.gl.useProgram(this.program);
@@ -50,5 +42,44 @@ class Shader
     
     getProgram() {
         return this.program;
+    }
+}
+
+class ComputeShader
+{
+    constructor(gl, shader, size_x, size_y) {
+        this.gl = gl;
+        this.shader = shader;
+        this.frameBufferInfo = createDepthFramebuffer(gl, size_x, size_y);
+        
+        this.verts = Mesh.create_and_load_vertex_buffer( gl, [-1, 1, 0, 1, 1, 0, 1, -1, 0, -1, -1, 0], gl.STATIC_DRAW );
+        this.indis = Mesh.create_and_load_elements_buffer( gl, [0, 1, 2, 0, 2, 3], gl.STATIC_DRAW );
+        
+    }
+    
+    dispatch() {
+        this.gl.useProgram(this.shader.getProgram());
+        
+        gl.bindBuffer( gl.ARRAY_BUFFER, this.verts );
+        gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, this.indis );
+        Mesh.set_vertex_attrib_to_buffer( gl, this.shader.getProgram(), "position", this.verts, 3, gl.FLOAT, false, 12, 0 );
+        
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBufferInfo.framebuffer);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        
+        gl.drawElements( gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0 );
+        gl.finish();//wait for our "compute shader" to finish
+        
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+    
+    getRenderTexture() {
+        return this.frameBufferInfo.texture;
+    }
+    
+    rebuild(gl, size_x, size_y) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        destroyDepthFramebuffer(gl, this.frameBufferInfo);
+        this.frameBufferInfo = createDepthFramebuffer(gl, size_x, size_y);
     }
 }

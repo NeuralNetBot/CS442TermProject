@@ -25,6 +25,11 @@ function createDepthFramebuffer(gl, width, height) {
     return { framebuffer: depthFramebuffer, texture: depthTexture };
 }
 
+function destroyDepthFramebuffer(gl, depthFrameBufferInfo) {
+    gl.deleteFramebuffer(depthFrameBufferInfo.framebuffer);
+    gl.deleteTexture(depthFrameBufferInfo.texture);
+}
+
 function loadTexture(gl, path, callback) {
     let tex = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0);
