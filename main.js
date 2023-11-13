@@ -142,6 +142,7 @@ let light_culling_comp_vertex_source =
         gl_Position = vec4(position, 1.0);
     }
 `;
+
 let light_culling_comp_fragment_source = 
 `   #version 300 es
     precision mediump float;
@@ -166,6 +167,8 @@ let light_culling_comp_fragment_source =
                 minDepth = min(minDepth, depth);
             }    
         }
+        
+        gl_FragDepth = maxDepth;
     }
 `;
 
@@ -254,7 +257,7 @@ function resizeCanvas() {
     if(light_cull_shader) {
         tilecount_x = Math.ceil(canvas.width / 16);
         tilecount_y = Math.ceil(canvas.height / 16);
-        light_cull_shader.rebuild(tilecount_x, tilecount_y);
+        light_cull_shader.rebuild(gl, tilecount_x, tilecount_y);
     }
 
     gl.viewport(0, 0, canvas.width, canvas.height);
