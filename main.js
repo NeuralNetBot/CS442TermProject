@@ -296,9 +296,9 @@ const lightColors = new Float32Array(
 const lightsBuffer = gl.createBuffer();
 gl.bindBuffer(gl.UNIFORM_BUFFER, lightsBuffer);
 
-const numLightsBytes = 4 * 4;//glsl pads to vec4s
-const lightPositionsBytes = 64 * 4 * 4;//glsl pads to vec4s
-const lightColorsBytes = 64 * 4 * 4;//glsl pads to vec4s
+const numLightsBytes = 4 * 4;           //glsl pads to vec4s
+const lightPositionsBytes = 64 * 4 * 4; //glsl pads to vec4s
+const lightColorsBytes = 64 * 4 * 4;    //glsl pads to vec4s
 
 gl.bufferData(gl.UNIFORM_BUFFER, numLightsBytes + lightPositionsBytes + lightColorsBytes, gl.DYNAMIC_DRAW);
 gl.bufferSubData(gl.UNIFORM_BUFFER, 0, numLights, 0, 1);
