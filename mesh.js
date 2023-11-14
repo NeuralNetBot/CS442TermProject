@@ -415,7 +415,7 @@ class Mesh {
      * 
      * @param {WebGLRenderingContext} gl 
      */
-    render( gl, program ) {
+    render( gl, program, instancecount = 1 ) {
         gl.cullFace( gl.BACK );
         gl.frontFace( gl.CCW );
         gl.enable( gl.CULL_FACE );
@@ -443,8 +443,13 @@ class Mesh {
             this.verts, 2, 
             gl.FLOAT, false, VERTEX_STRIDE, 24
         );
-
-        gl.drawElements( gl.TRIANGLES, this.n_indis, gl.UNSIGNED_SHORT, 0 );
+        
+        if(instancecount == 1) {
+            gl.drawElements( gl.TRIANGLES, this.n_indis, gl.UNSIGNED_SHORT, 0 );
+        }
+        else {
+            gl.drawElementsInstanced( gl.TRIANGLES, this.n_indis, gl.UNSIGNED_SHORT, 0, instancecount );
+        }
     }
 
     /**

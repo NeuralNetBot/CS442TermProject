@@ -3,6 +3,15 @@ let canvas = document.getElementById( 'the-canvas' );
 /** @type {WebGL2RenderingContext} */
 let gl = canvas.getContext( 'webgl2' );
 
+const ext = gl.getExtension('ANGLE_instanced_arrays') || gl.getExtension('EXT_instanced_arrays');
+
+if (ext) {
+    gl.vertexAttribDivisorANGLE = ext.vertexAttribDivisorANGLE || ext.vertexAttribDivisorEXT;
+    gl.drawArraysInstanced = gl.drawArraysInstancedANGLE || gl.drawArraysInstancedEXT;
+    gl.drawElementsInstanced = gl.drawElementsInstancedANGLE || gl.drawElementsInstancedEXT;
+}
+
+
 //inital resize
 let depthFrameBufferInfo = null;
 let light_cull_shader = null;
@@ -130,6 +139,55 @@ let depth_fragment_source =
     }
 `;
 
+let light_draw_vertex_source =
+`   #version 300 es
+    precision mediump float;
+
+    in vec3 position;
+    in vec3 normal;
+    in vec2 uv;
+    
+    uniform mat4 model;
+    uniform mat4 view_projection;
+    
+    out vec3 aNormal;
+    out vec2 aUV;
+    flat out int instanceID;
+    
+    uniform vec3 light_positions[64];
+    
+    void main( void )
+    {
+        aNormal = normal;
+        aUV = uv;
+        instanceID = int(gl_InstanceID);
+        gl_Position = (view_projection) * vec4( (position / 3.0) + light_positions[int(gl_InstanceID)], 1.0 );
+    }
+`;
+
+let light_draw_fragment_source = 
+`   #version 300 es
+    precision mediump float;
+
+    out vec4 f_color;
+    
+    in vec3 aNormal;
+    in vec2 aUV;
+    flat in int instanceID;
+
+    //point lights
+    uniform int num_lights;
+    uniform vec3 light_positions[64];
+    uniform vec4 light_colors[64];//w component is the linear component of light
+
+    void main( void )
+    {
+        f_color = vec4(light_colors[instanceID].xyz, 1.0);
+    }
+`;
+
+
+
 let light_culling_comp_vertex_source = 
 `   #version 300 es
     precision mediump float;
@@ -176,6 +234,10 @@ let mainshader = Shader.createShader(gl, vertex_source, fragment_source);
 mainshader.use();
 let shader_program = mainshader.getProgram();
 
+
+let lightshader = Shader.createShader(gl, light_draw_vertex_source, light_draw_fragment_source);
+let light_program = lightshader.getProgram();
+
 let depthshader = Shader.createShader(gl, depth_vertex_source, depth_fragment_source);
 
 let tilecount_x = Math.ceil(canvas.width / 16);
@@ -189,7 +251,9 @@ let last_update = performance.now();
 
 //let objmesh = null;
 //Mesh.from_obj_file( gl, "untitled.obj", shader_program, mesh_loaded );
-let sphere = Mesh.plane(gl);//sphere( gl, 16 );
+let planemesh = Mesh.plane(gl);
+let sphere = Mesh.sphere( gl, 16 );
+
 
 let perspective = Mat4.perspective(Math.PI / 2, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 100);
 camera = new Camera(new Vec4(0, 0, 2, 0), 0, 0, 0, perspective);
@@ -205,7 +269,7 @@ gl.uniform1f( gl.getUniformLocation( shader_program, "mat_diffuse" ), 1.0 );
 gl.uniform1f( gl.getUniformLocation( shader_program, "mat_specular" ), 2.0 );
 gl.uniform1f( gl.getUniformLocation( shader_program, "mat_shininess" ), 4.0 );
 
-let numLights = 1;
+let numLights = 3;
 const lightPositions = [
     -2.0, 0.0, 0.0,
     0.0, 2.0, 0.0,
@@ -221,6 +285,10 @@ const lightColors = [
 gl.uniform1i( gl.getUniformLocation( shader_program, "num_lights" ), numLights);
 gl.uniform3fv( gl.getUniformLocation( shader_program, "light_positions" ), new Float32Array(lightPositions));
 gl.uniform4fv( gl.getUniformLocation( shader_program, "light_colors" ), new Float32Array(lightColors));
+lightshader.use();
+gl.uniform1i( gl.getUniformLocation( light_program, "num_lights" ), numLights);
+gl.uniform3fv( gl.getUniformLocation( light_program, "light_positions" ), new Float32Array(lightPositions));
+gl.uniform4fv( gl.getUniformLocation( light_program, "light_colors" ), new Float32Array(lightColors));
 
 Input.setMouseHandler(handleMouse);
 Input.init();
@@ -264,7 +332,7 @@ function resizeCanvas() {
 }
 
 
-function renderObjects(now, current_shader) {
+function renderObjects(now, current_shader, depthonly) {
     
     let mxz = Mat4.rotation_xz( 0.0 );
     let tran = Mat4.translation(0.0, -1.0, 0.0);
@@ -277,8 +345,13 @@ function renderObjects(now, current_shader) {
     gl.uniform3f( gl.getUniformLocation( current_shader, "view_pos" ), viewpos.x, viewpos.y, viewpos.z );
     gl.uniformMatrix4fv( gl.getUniformLocation( current_shader, "view_projection" ), true,  cameramat.data);
     
-    if (sphere) {
-        sphere.render(gl, current_shader);
+    if (planemesh) {
+        planemesh.render(gl, current_shader);
+    }
+    if(!depthonly) {
+        lightshader.use();
+        sphere.render(gl, light_program, numLights);
+        gl.uniformMatrix4fv( gl.getUniformLocation( light_program, "view_projection" ), true,  cameramat.data);
     }
     
 }
@@ -316,7 +389,7 @@ function render(now) {
     
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     depthshader.use();
-    renderObjects(now, depthshader.getProgram());
+    renderObjects(now, depthshader.getProgram(), true);
 
     gl.bindTexture( gl.TEXTURE_2D, depthFrameBufferInfo.texture);
     light_cull_shader.dispatch();
@@ -330,7 +403,7 @@ function render(now) {
     
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     mainshader.use();
-    renderObjects(now, mainshader.getProgram());
+    renderObjects(now, mainshader.getProgram(), false);
 
     requestAnimationFrame(render);
 }
