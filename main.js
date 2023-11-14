@@ -52,6 +52,14 @@ let fragment_source =
     in vec3 aPosition;
     in vec3 aNormal;
     in vec2 aUV;
+    
+    //point lights
+    uniform Lights {
+        highp int num_lights;
+        vec3 light_positions[64];
+        vec4 light_colors[64];//w component is the linear component of light        
+    } lights;
+    
     uniform sampler2D tex_0;
     
     uniform vec3 sun_direction;
@@ -63,11 +71,6 @@ let fragment_source =
     uniform float mat_diffuse;
     uniform float mat_specular;
     uniform float mat_shininess;
-
-    //point lights
-    uniform int num_lights;
-    uniform vec3 light_positions[64];
-    uniform vec4 light_colors[64];//w component is the linear component of light
 
     vec3 calcLight(vec3 light_direcion, vec3 light_color, vec3 surf_normal)
     {
@@ -88,12 +91,12 @@ let fragment_source =
 
         vec3 final = ambient + calcLight(-sun_direction, sun_color, aNormal);
         
-        for(int i = 0; i < num_lights; i++)
+        for(int i = 0; i < lights.num_lights; i++)
         {
-            float dist = length(light_positions[i] - aPosition);
-            float atten = 1.0 / (light_colors[i].w * dist);
-            vec3 light_dir = normalize(light_positions[i] - aPosition);
-            final += calcLight(light_dir, vec3(light_colors[i]), aNormal) * atten;
+            float dist = length(lights.light_positions[i] - aPosition);
+            float atten = 1.0 / (lights.light_colors[i].w * dist);
+            vec3 light_dir = normalize(lights.light_positions[i] - aPosition);
+            final += calcLight(light_dir, vec3(lights.light_colors[i]), aNormal) * atten;
         }
         f_color = vec4(final, 1.0) * texture(tex_0, aUV);
     }
@@ -146,6 +149,13 @@ let light_draw_vertex_source =
     in vec3 position;
     in vec3 normal;
     in vec2 uv;
+
+    //point lights
+    uniform Lights {
+        highp int num_lights;
+        vec3 light_positions[64];
+        vec4 light_colors[64]; 
+    } lights;
     
     uniform mat4 model;
     uniform mat4 view_projection;
@@ -154,14 +164,12 @@ let light_draw_vertex_source =
     out vec2 aUV;
     flat out int instanceID;
     
-    uniform vec3 light_positions[64];
-    
     void main( void )
     {
         aNormal = normal;
         aUV = uv;
         instanceID = int(gl_InstanceID);
-        gl_Position = (view_projection) * vec4( (position / 3.0) + light_positions[int(gl_InstanceID)], 1.0 );
+        gl_Position = (view_projection) * vec4( (position / 5.0) + lights.light_positions[int(gl_InstanceID)], 1.0 );
     }
 `;
 
@@ -169,20 +177,22 @@ let light_draw_fragment_source =
 `   #version 300 es
     precision mediump float;
 
+    //point lights
+    uniform Lights {
+        highp int num_lights;
+        vec3 light_positions[64];
+        vec4 light_colors[64]; 
+    } lights;
+
     out vec4 f_color;
     
     in vec3 aNormal;
     in vec2 aUV;
     flat in int instanceID;
 
-    //point lights
-    uniform int num_lights;
-    uniform vec3 light_positions[64];
-    uniform vec4 light_colors[64];//w component is the linear component of light
-
     void main( void )
     {
-        f_color = vec4(light_colors[instanceID].xyz, 1.0);
+        f_color = vec4(lights.light_colors[instanceID].xyz, 1.0);
     }
 `;
 
@@ -231,14 +241,11 @@ let light_culling_comp_fragment_source =
 `;
 
 let mainshader = Shader.createShader(gl, vertex_source, fragment_source);
-mainshader.use();
 let shader_program = mainshader.getProgram();
-
-
 let lightshader = Shader.createShader(gl, light_draw_vertex_source, light_draw_fragment_source);
 let light_program = lightshader.getProgram();
-
 let depthshader = Shader.createShader(gl, depth_vertex_source, depth_fragment_source);
+let depth_program = depthshader.getProgram()
 
 let tilecount_x = Math.ceil(canvas.width / 16);
 let tilecount_y = Math.ceil(canvas.height / 16);
@@ -252,7 +259,7 @@ let last_update = performance.now();
 //let objmesh = null;
 //Mesh.from_obj_file( gl, "untitled.obj", shader_program, mesh_loaded );
 let planemesh = Mesh.plane(gl);
-let sphere = Mesh.sphere( gl, 16 );
+let sphere = Mesh.sphere( gl, 8 );
 
 
 let perspective = Mat4.perspective(Math.PI / 2, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 100);
@@ -261,34 +268,50 @@ camera = new Camera(new Vec4(0, 0, 2, 0), 0, 0, 0, perspective);
 
 let sundir = new Vec4(-1.0, -1.0, -1.0, 0.0);
 sundir = sundir.norm();
+mainshader.use();
 gl.uniform3f( gl.getUniformLocation( shader_program, "sun_direction" ), sundir.x, sundir.y, sundir.z);
 gl.uniform3f( gl.getUniformLocation( shader_program, "sun_color" ), 1.0, 1.0, 1.0 );
 
-gl.uniform1f( gl.getUniformLocation( shader_program, "ambient" ), 0.25 );
+gl.uniform1f( gl.getUniformLocation( shader_program, "ambient" ), 0.01 );
 gl.uniform1f( gl.getUniformLocation( shader_program, "mat_diffuse" ), 1.0 );
 gl.uniform1f( gl.getUniformLocation( shader_program, "mat_specular" ), 2.0 );
-gl.uniform1f( gl.getUniformLocation( shader_program, "mat_shininess" ), 4.0 );
+gl.uniform1f( gl.getUniformLocation( shader_program, "mat_shininess" ), 32.0 );
 
-let numLights = 3;
-const lightPositions = [
-    -2.0, 0.0, 0.0,
-    0.0, 2.0, 0.0,
-    0.0, 0.0, -2.0
-];
+const numLights = new Int32Array([4]);
+const lightPositions = new Float32Array(
+    [
+        -2.0, 0.0, 0.0, 0.0,
+        5.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, -2.0, 0.0,
+        0.0, 1.0, 5.0, 0.0
+    ]);
+const lightColors = new Float32Array(
+    [
+        1.0, 0.0, 0.0, 0.5,
+        0.0, 1.0, 0.0, 0.5,
+        0.0, 0.0, 1.0, 0.5,
+        1.0, 1.0, 0.0, 0.5
+    ]);
 
-const lightColors = [
-    1.0, 0.0, 0.0, 0.5,
-    0.0, 1.0, 0.0, 0.5,
-    0.0, 0.0, 1.0, 0.5
-];
+const lightsBuffer = gl.createBuffer();
+gl.bindBuffer(gl.UNIFORM_BUFFER, lightsBuffer);
 
-gl.uniform1i( gl.getUniformLocation( shader_program, "num_lights" ), numLights);
-gl.uniform3fv( gl.getUniformLocation( shader_program, "light_positions" ), new Float32Array(lightPositions));
-gl.uniform4fv( gl.getUniformLocation( shader_program, "light_colors" ), new Float32Array(lightColors));
-lightshader.use();
-gl.uniform1i( gl.getUniformLocation( light_program, "num_lights" ), numLights);
-gl.uniform3fv( gl.getUniformLocation( light_program, "light_positions" ), new Float32Array(lightPositions));
-gl.uniform4fv( gl.getUniformLocation( light_program, "light_colors" ), new Float32Array(lightColors));
+const numLightsBytes = 4 * 4;//glsl pads to vec4s
+const lightPositionsBytes = 64 * 4 * 4;//glsl pads to vec4s
+const lightColorsBytes = 64 * 4 * 4;//glsl pads to vec4s
+
+gl.bufferData(gl.UNIFORM_BUFFER, numLightsBytes + lightPositionsBytes + lightColorsBytes, gl.DYNAMIC_DRAW);
+gl.bufferSubData(gl.UNIFORM_BUFFER, 0, numLights, 0, 1);
+gl.bufferSubData(gl.UNIFORM_BUFFER, numLightsBytes, lightPositions, 0);
+gl.bufferSubData(gl.UNIFORM_BUFFER, numLightsBytes + lightPositionsBytes, lightColors, 0);
+
+const lightsBufferBindingPoint = 0;
+gl.bindBufferBase(gl.UNIFORM_BUFFER, lightsBufferBindingPoint, lightsBuffer);
+
+const lightBlockIndex1 = gl.getUniformBlockIndex(shader_program, "Lights");
+gl.uniformBlockBinding(shader_program, lightBlockIndex1, 0);
+const lightBlockIndex2 = gl.getUniformBlockIndex(light_program, "Lights");
+gl.uniformBlockBinding(light_program, lightBlockIndex2, 0);
 
 Input.setMouseHandler(handleMouse);
 Input.init();
@@ -348,6 +371,7 @@ function renderObjects(now, current_shader, depthonly) {
     if (planemesh) {
         planemesh.render(gl, current_shader);
     }
+    //render objects that we dont want to be included in our depth information
     if(!depthonly) {
         lightshader.use();
         sphere.render(gl, light_program, numLights);
@@ -389,7 +413,7 @@ function render(now) {
     
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     depthshader.use();
-    renderObjects(now, depthshader.getProgram(), true);
+    renderObjects(now, depth_program, true);
 
     gl.bindTexture( gl.TEXTURE_2D, depthFrameBufferInfo.texture);
     light_cull_shader.dispatch();
