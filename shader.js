@@ -82,4 +82,29 @@ class ComputeShader
         destroyDepthFramebuffer(gl, this.frameBufferInfo);
         this.frameBufferInfo = createDepthFramebuffer(gl, size_x, size_y);
     }
+    
+    getProgram() {
+        return this.shader.getProgram();
+    }
+}
+
+class UniformBuffer {
+    constructor(gl, size_bytes, bindingpoint) {
+        this.buffer = gl.createBuffer();
+        this.bindingpoint = bindingpoint;
+        gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffer);
+        gl.bufferData(gl.UNIFORM_BUFFER, size_bytes, gl.DYNAMIC_DRAW);
+        
+        gl.bindBufferBase(gl.UNIFORM_BUFFER, bindingpoint, this.buffer);
+    }
+    
+    bindToShader(shader, bindstr) {
+        gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffer);
+        const blockIndex = gl.getUniformBlockIndex(shader.getProgram(), bindstr);
+        gl.uniformBlockBinding(shader.getProgram(), blockIndex, this.bindingpoint);
+    }
+    
+    bind() {
+        gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffer);
+    }
 }

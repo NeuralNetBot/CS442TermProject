@@ -26,9 +26,10 @@ let vertex_source =
     in vec3 normal;
     in vec2 uv;
     
-    uniform mat4 model;
-    uniform mat4 view_projection;
-    
+    uniform MVP {
+        mat4 model;
+        mat4 view_projection;
+    } mvp;
     
     out vec3 aPosition;
     out vec3 aNormal;
@@ -36,10 +37,10 @@ let vertex_source =
     
     void main( void )
     {
-        aPosition = vec3(model * vec4(position, 1.0));
-        aNormal = normalize(mat3(model) * normal);
+        aPosition = vec3(mvp.model * vec4(position, 1.0));
+        aNormal = normalize(mat3(mvp.model) * normal);
         aUV = uv;
-        gl_Position = (view_projection * model) * vec4( position, 1.0 );
+        gl_Position = (mvp.view_projection * mvp.model) * vec4( position, 1.0 );
     }
 `;
 
@@ -110,8 +111,10 @@ let depth_vertex_source =
     in vec3 normal;
     in vec2 uv;
     
-    uniform mat4 model;
-    uniform mat4 view_projection;
+    uniform MVP {
+        mat4 model;
+        mat4 view_projection;
+    } mvp;
     
     out vec3 aPosition;
     out vec3 aNormal;
@@ -122,7 +125,7 @@ let depth_vertex_source =
         aPosition - position;
         aNormal = normal;
         aUV = uv;
-        gl_Position = (view_projection * model) * vec4( position, 1.0 );
+        gl_Position = (mvp.view_projection * mvp.model) * vec4( position, 1.0 );
     }
 `;
 
@@ -150,15 +153,17 @@ let light_draw_vertex_source =
     in vec3 normal;
     in vec2 uv;
 
+    uniform MVP {
+        mat4 model;
+        mat4 view_projection;
+    } mvp;
+
     //point lights
     uniform Lights {
         highp int num_lights;
         vec3 light_positions[64];
         vec4 light_colors[64]; 
     } lights;
-    
-    uniform mat4 model;
-    uniform mat4 view_projection;
     
     out vec3 aNormal;
     out vec2 aUV;
@@ -169,7 +174,7 @@ let light_draw_vertex_source =
         aNormal = normal;
         aUV = uv;
         instanceID = int(gl_InstanceID);
-        gl_Position = (view_projection) * vec4( (position / 5.0) + lights.light_positions[int(gl_InstanceID)], 1.0 );
+        gl_Position = (mvp.view_projection) * vec4( (position / 5.0) + lights.light_positions[int(gl_InstanceID)], 1.0 );
     }
 `;
 
@@ -241,11 +246,8 @@ let light_culling_comp_fragment_source =
 `;
 
 let mainshader = Shader.createShader(gl, vertex_source, fragment_source);
-let shader_program = mainshader.getProgram();
 let lightshader = Shader.createShader(gl, light_draw_vertex_source, light_draw_fragment_source);
-let light_program = lightshader.getProgram();
 let depthshader = Shader.createShader(gl, depth_vertex_source, depth_fragment_source);
-let depth_program = depthshader.getProgram()
 
 let tilecount_x = Math.ceil(canvas.width / 16);
 let tilecount_y = Math.ceil(canvas.height / 16);
@@ -269,13 +271,13 @@ camera = new Camera(new Vec4(0, 0, 2, 0), 0, 0, 0, perspective);
 let sundir = new Vec4(-1.0, -1.0, -1.0, 0.0);
 sundir = sundir.norm();
 mainshader.use();
-gl.uniform3f( gl.getUniformLocation( shader_program, "sun_direction" ), sundir.x, sundir.y, sundir.z);
-gl.uniform3f( gl.getUniformLocation( shader_program, "sun_color" ), 1.0, 1.0, 1.0 );
+gl.uniform3f( gl.getUniformLocation( mainshader.getProgram(), "sun_direction" ), sundir.x, sundir.y, sundir.z);
+gl.uniform3f( gl.getUniformLocation( mainshader.getProgram(), "sun_color" ), 1.0, 1.0, 1.0 );
 
-gl.uniform1f( gl.getUniformLocation( shader_program, "ambient" ), 0.01 );
-gl.uniform1f( gl.getUniformLocation( shader_program, "mat_diffuse" ), 1.0 );
-gl.uniform1f( gl.getUniformLocation( shader_program, "mat_specular" ), 2.0 );
-gl.uniform1f( gl.getUniformLocation( shader_program, "mat_shininess" ), 32.0 );
+gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "ambient" ), 0.01 );
+gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_diffuse" ), 1.0 );
+gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_specular" ), 2.0 );
+gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_shininess" ), 32.0 );
 
 const numLights = new Int32Array([4]);
 const lightPositions = new Float32Array(
@@ -292,26 +294,21 @@ const lightColors = new Float32Array(
         0.0, 0.0, 1.0, 0.5,
         1.0, 1.0, 0.0, 0.5
     ]);
-
-const lightsBuffer = gl.createBuffer();
-gl.bindBuffer(gl.UNIFORM_BUFFER, lightsBuffer);
-
+    
+let MVPBuffer = new UniformBuffer(gl, 4 * 16 * 2, 0);
+MVPBuffer.bindToShader(mainshader, "MVP");
+MVPBuffer.bindToShader(lightshader, "MVP");
+MVPBuffer.bindToShader(depthshader, "MVP");    
+    
 const numLightsBytes = 4 * 4;           //glsl pads to vec4s
 const lightPositionsBytes = 64 * 4 * 4; //glsl pads to vec4s
 const lightColorsBytes = 64 * 4 * 4;    //glsl pads to vec4s
-
-gl.bufferData(gl.UNIFORM_BUFFER, numLightsBytes + lightPositionsBytes + lightColorsBytes, gl.DYNAMIC_DRAW);
+let lightsBuffer = new UniformBuffer(gl, numLightsBytes + lightPositionsBytes + lightColorsBytes, 1);
 gl.bufferSubData(gl.UNIFORM_BUFFER, 0, numLights, 0, 1);
 gl.bufferSubData(gl.UNIFORM_BUFFER, numLightsBytes, lightPositions, 0);
 gl.bufferSubData(gl.UNIFORM_BUFFER, numLightsBytes + lightPositionsBytes, lightColors, 0);
-
-const lightsBufferBindingPoint = 0;
-gl.bindBufferBase(gl.UNIFORM_BUFFER, lightsBufferBindingPoint, lightsBuffer);
-
-const lightBlockIndex1 = gl.getUniformBlockIndex(shader_program, "Lights");
-gl.uniformBlockBinding(shader_program, lightBlockIndex1, 0);
-const lightBlockIndex2 = gl.getUniformBlockIndex(light_program, "Lights");
-gl.uniformBlockBinding(light_program, lightBlockIndex2, 0);
+lightsBuffer.bindToShader(mainshader, "Lights");
+lightsBuffer.bindToShader(lightshader, "Lights");
 
 Input.setMouseHandler(handleMouse);
 Input.init();
@@ -361,12 +358,14 @@ function renderObjects(now, current_shader, depthonly) {
     let tran = Mat4.translation(0.0, -1.0, 0.0);
     
     let model = tran.mul(mxz);
-    gl.uniformMatrix4fv( gl.getUniformLocation( current_shader, "model" ), true, model.data );
     
     let cameramat = camera.getMatrix();
     let viewpos = camera.getPosition();
     gl.uniform3f( gl.getUniformLocation( current_shader, "view_pos" ), viewpos.x, viewpos.y, viewpos.z );
-    gl.uniformMatrix4fv( gl.getUniformLocation( current_shader, "view_projection" ), true,  cameramat.data);
+    
+    MVPBuffer.bind();
+    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, new Float32Array(model.data), 0);
+    gl.bufferSubData(gl.UNIFORM_BUFFER, 4 * 16, new Float32Array(cameramat.data), 0);
     
     if (planemesh) {
         planemesh.render(gl, current_shader);
@@ -374,8 +373,7 @@ function renderObjects(now, current_shader, depthonly) {
     //render objects that we dont want to be included in our depth information
     if(!depthonly) {
         lightshader.use();
-        sphere.render(gl, light_program, numLights);
-        gl.uniformMatrix4fv( gl.getUniformLocation( light_program, "view_projection" ), true,  cameramat.data);
+        sphere.render(gl, lightshader.getProgram(), numLights);
     }
     
 }
@@ -413,7 +411,7 @@ function render(now) {
     
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     depthshader.use();
-    renderObjects(now, depth_program, true);
+    renderObjects(now, depthshader.getProgram(), true);
 
     gl.bindTexture( gl.TEXTURE_2D, depthFrameBufferInfo.texture);
     light_cull_shader.dispatch();
