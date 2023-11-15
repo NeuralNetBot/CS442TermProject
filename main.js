@@ -351,7 +351,6 @@ function resizeCanvas() {
     gl.viewport(0, 0, canvas.width, canvas.height);
 }
 
-
 function renderObjects(now, current_shader, depthonly) {
     
     let mxz = Mat4.rotation_xz( 0.0 );
@@ -364,8 +363,8 @@ function renderObjects(now, current_shader, depthonly) {
     gl.uniform3f( gl.getUniformLocation( current_shader, "view_pos" ), viewpos.x, viewpos.y, viewpos.z );
     
     MVPBuffer.bind();
-    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, new Float32Array(model.data), 0);
-    gl.bufferSubData(gl.UNIFORM_BUFFER, 4 * 16, new Float32Array(cameramat.data), 0);
+    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, model.asColumnMajorFloat32Array(), 0);
+    gl.bufferSubData(gl.UNIFORM_BUFFER, 4 * 16, cameramat.asColumnMajorFloat32Array(), 0);
     
     if (planemesh) {
         planemesh.render(gl, current_shader);

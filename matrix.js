@@ -261,4 +261,16 @@ class Mat4 {
 		
 		return pieces.join( ' ' );
 	}
+    
+    asColumnMajorFloat32Array() {
+        const columnMajorArray = new Float32Array(16);
+
+        for (let i = 0; i < 4; i++) {
+            for (let j = 0; j < 4; j++) {
+                columnMajorArray[i * 4 + j] = this.data[j * 4 + i];
+            }
+        }
+
+        return columnMajorArray;
+    }
 }
