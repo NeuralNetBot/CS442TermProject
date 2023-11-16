@@ -47,10 +47,12 @@ class Shader
 
 class ComputeShader
 {
-    constructor(gl, shader, size_x, size_y) {
+    constructor(gl, shader, size_x, size_y, framebuffer_z) {
         this.gl = gl;
         this.shader = shader;
-        this.frameBufferInfo = createDepthFramebuffer(gl, size_x, size_y);
+        this.size_x = size_x;
+        this.size_y = size_y;
+        this.frameBufferInfo = createFramebuffer(gl, size_x, size_y, framebuffer_z);
         
         this.verts = Mesh.create_and_load_vertex_buffer( gl, [-1, 1, 0, 1, 1, 0, 1, -1, 0, -1, -1, 0], gl.STATIC_DRAW );
         this.indis = Mesh.create_and_load_elements_buffer( gl, [0, 1, 2, 0, 2, 3], gl.STATIC_DRAW );
@@ -66,6 +68,7 @@ class ComputeShader
         
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBufferInfo.framebuffer);
         gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.viewport(0, 0, this.size_x, this.size_y);
         
         gl.drawElements( gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0 );
         gl.finish();//wait for our "compute shader" to finish
@@ -77,10 +80,12 @@ class ComputeShader
         return this.frameBufferInfo.texture;
     }
     
-    rebuild(gl, size_x, size_y) {
+    rebuild(gl, size_x, size_y, framebuffer_z) {
+        this.size_x = size_x;
+        this.size_y = size_y;
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        destroyDepthFramebuffer(gl, this.frameBufferInfo);
-        this.frameBufferInfo = createDepthFramebuffer(gl, size_x, size_y);
+        destroyFramebuffer(gl, this.frameBufferInfo);
+        this.frameBufferInfo = createFramebuffer(gl, size_x, size_y, framebuffer_z);
     }
     
     getProgram() {

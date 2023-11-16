@@ -223,12 +223,30 @@ let light_culling_comp_fragment_source =
     const int TILE_SIZE = 16;
 
     in vec2 aPosition;
+    
+    uniform MVP {
+        mat4 model;
+        mat4 view_projection;
+    } mvp;
+
+    //point lights
+    uniform Lights {
+        highp int num_lights;
+        vec3 light_positions[64];
+        vec4 light_colors[64]; 
+    } lights;
 
     uniform sampler2D depthimage;
     uniform vec2 tile_size;
     
-    //first index light count
-    uniform sampler3D lightTiles;
+    layout(location = 0) out vec4 lightOut0;
+    layout(location = 1) out vec4 lightOut1;
+    layout(location = 2) out vec4 lightOut2;
+    layout(location = 3) out vec4 lightOut3;
+    layout(location = 4) out vec4 lightOut4;
+    layout(location = 5) out vec4 lightOut5;
+    layout(location = 6) out vec4 lightOut6;
+    layout(location = 7) out vec4 lightOut7;
 
     void main() {
         vec2 tile = (aPosition + 1.0) / 2.0 * tile_size;
@@ -245,7 +263,14 @@ let light_culling_comp_fragment_source =
             }    
         }
         
-        gl_FragDepth = maxDepth;
+        lightOut0 = vec4(0.0, 0.0, 0.0, 0.0);
+        lightOut1 = vec4(0.0, 0.0, 0.0, 0.0);
+        lightOut2 = vec4(0.0, 0.0, 0.0, 0.0);
+        lightOut3 = vec4(0.0, 0.0, 0.0, 0.0);
+        lightOut4 = vec4(0.0, 0.0, 0.0, 0.0);
+        lightOut5 = vec4(0.0, 0.0, 0.0, 0.0);
+        lightOut6 = vec4(0.0, 0.0, 0.0, 0.0);
+        lightOut7 = vec4(0.0, 0.0, 0.0, 0.0);
     }
 `;
 
@@ -302,7 +327,8 @@ const lightColors = new Float32Array(
 let MVPBuffer = new GPUBuffer(gl, gl.UNIFORM_BUFFER, 4 * 16 * 2, 0);
 MVPBuffer.bindToShader(mainshader, "MVP");
 MVPBuffer.bindToShader(lightshader, "MVP");
-MVPBuffer.bindToShader(depthshader, "MVP");    
+MVPBuffer.bindToShader(depthshader, "MVP");  
+MVPBuffer.bindToShader(light_cull_shader, "MVP");    
     
 const numLightsBytes = 4 * 4;           //glsl pads to vec4s
 const lightPositionsBytes = 64 * 4 * 4; //glsl pads to vec4s
@@ -313,6 +339,7 @@ lightsBuffer.setData(lightPositions, numLightsBytes);
 lightsBuffer.setData(lightColors, numLightsBytes + lightPositionsBytes);
 lightsBuffer.bindToShader(mainshader, "Lights");
 lightsBuffer.bindToShader(lightshader, "Lights");
+lightsBuffer.bindToShader(light_cull_shader, "Lights");
 
 Input.setMouseHandler(handleMouse);
 Input.init();
@@ -333,23 +360,17 @@ function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     
-    //reuild the perspective matrix as well
-    
     if(typeof camera !== 'undefined' && camera !== null) {
         camera.setPerspectiveMat(Mat4.perspective(Math.PI / 2, canvas.width / canvas.height, 0.1, 100));
     }
     
-    //and depth frame buffer
-    if (depthFrameBufferInfo) {
-        gl.deleteFramebuffer(depthFrameBufferInfo.framebuffer);
-        gl.deleteTexture(depthFrameBufferInfo.texture);
-    }
-    
+    if (depthFrameBufferInfo) { destroyFramebuffer(gl, depthFrameBufferInfo); }
     depthFrameBufferInfo = createDepthFramebuffer(gl, canvas.width, canvas.height);
+
     if(light_cull_shader) {
         tilecount_x = Math.ceil(canvas.width / 16);
         tilecount_y = Math.ceil(canvas.height / 16);
-        light_cull_shader.rebuild(gl, tilecount_x, tilecount_y);
+        light_cull_shader.rebuild(gl, tilecount_x, tilecount_y, 8);
     }
 
     gl.viewport(0, 0, canvas.width, canvas.height);
