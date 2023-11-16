@@ -25,6 +25,19 @@ function createDepthFramebuffer(gl, width, height) {
     return { framebuffer: depthFramebuffer, texture: depthTexture };
 }
 
+//format for uint32 gl.RGBA32UI
+function createTexture(gl, size_x, size_y, format) {
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2d, tex);
+    gl.texImage2D(gl.TEXTURE_2d, 0, format, 1, 1, 0, gl.RGBA_INTEGER, gl.UNSIGNED_INT, new Uint32Array(size_x*size_y));
+    gl.bindTexture(gl.TEXTURE_2d, null);
+    return tex;
+}
+
+function deletTexture(gl, tex) {
+    gl.deleteTexture(texture);
+}
+
 function destroyDepthFramebuffer(gl, depthFrameBufferInfo) {
     gl.deleteFramebuffer(depthFrameBufferInfo.framebuffer);
     gl.deleteTexture(depthFrameBufferInfo.texture);

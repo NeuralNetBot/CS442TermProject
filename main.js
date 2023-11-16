@@ -225,17 +225,28 @@ let light_culling_comp_fragment_source =
     in vec2 aPosition;
 
     uniform sampler2D depthimage;
-    uniform vec2 size;
+    uniform vec2 tile_size;
+    
+    #define MAX_LIGHTS_PER_TILE 255 //not using 256 as were using that for the count so there is better byte alignment
+    struct LightVisibility {
+        int count;
+        int lightindex[MAX_LIGHTS_PER_TILE];  
+    };
+    
+    buffer LightTiles {
+        LightVisibility lightvis[];
+    } lightTiles;
 
     void main() {
-        vec2 invoc = (aPosition + 1.0) / 2.0 * size;
+        vec2 tile = (aPosition + 1.0) / 2.0 * tile_size;
+        int tileindex = int(tile.x) * int(tile_size.x) + int(tile.y);
         
         float maxDepth = 0.0;
         float minDepth = 1.0;
         
         for(int x = 0; x < TILE_SIZE; x++) {
             for(int y = 0; y < TILE_SIZE; y++) {
-                float depth = texture(depthimage, (invoc * float(TILE_SIZE)) + vec2(x, y) ).r;
+                float depth = texture(depthimage, (tile * float(TILE_SIZE)) + vec2(x, y) ).r;
                 maxDepth = max(maxDepth, depth);
                 minDepth = min(minDepth, depth);
             }    

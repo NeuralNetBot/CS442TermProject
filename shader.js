@@ -90,7 +90,6 @@ class ComputeShader
 
 class GPUBuffer {
     //valid types
-    //gl.SHADER_STORAGE_BUFFER
     //gl.UNIFORM_BUFFER
     //bindingpoint is an integer in starting at 0 in the order the buffers appear in the shader
     constructor(gl, type, size_bytes, bindingpoint) {
