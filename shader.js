@@ -54,8 +54,7 @@ class ComputeShader
         this.size_y = size_y;
         this.frameBufferInfo = createFramebuffer(gl, size_x, size_y, framebuffer_z);
         
-        this.verts = Mesh.create_and_load_vertex_buffer( gl, [-1, 1, 0, 1, 1, 0, 1, -1, 0, -1, -1, 0], gl.STATIC_DRAW );
-        this.indis = Mesh.create_and_load_elements_buffer( gl, [0, 1, 2, 0, 2, 3], gl.STATIC_DRAW );
+        this.verts = Mesh.create_and_load_vertex_buffer( gl, [-1, 1, 0, -1, -1, 0, 1, 1, 0, 1, -1, 0], gl.STATIC_DRAW );
         
     }
     
@@ -67,10 +66,9 @@ class ComputeShader
         Mesh.set_vertex_attrib_to_buffer( gl, this.shader.getProgram(), "position", this.verts, 3, gl.FLOAT, false, 12, 0 );
         
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBufferInfo.framebuffer);
-        gl.bindTexture(gl.TEXTURE_2D, null);
         gl.viewport(0, 0, this.size_x, this.size_y);
         
-        gl.drawElements( gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0 );
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         gl.finish();//wait for our "compute shader" to finish
         
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
