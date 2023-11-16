@@ -277,6 +277,7 @@ let light_culling_comp_fragment_source =
                 return false;
             }
         }
+        return true;
     }
     
     vec4 packInts(int a, int b) {
