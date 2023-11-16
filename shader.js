@@ -88,27 +88,32 @@ class ComputeShader
     }
 }
 
-class UniformBuffer {
-    constructor(gl, size_bytes, bindingpoint) {
+class GPUBuffer {
+    //valid types
+    //gl.SHADER_STORAGE_BUFFER
+    //gl.UNIFORM_BUFFER
+    //bindingpoint is an integer in starting at 0 in the order the buffers appear in the shader
+    constructor(gl, type, size_bytes, bindingpoint) {
         this.buffer = gl.createBuffer();
         this.bindingpoint = bindingpoint;
-        gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffer);
-        gl.bufferData(gl.UNIFORM_BUFFER, size_bytes, gl.DYNAMIC_DRAW);
+        this.type = type;
+        gl.bindBuffer(this.type, this.buffer);
+        gl.bufferData(this.type, size_bytes, gl.DYNAMIC_DRAW);
         
-        gl.bindBufferBase(gl.UNIFORM_BUFFER, bindingpoint, this.buffer);
+        gl.bindBufferBase(this.type, bindingpoint, this.buffer);
     }
     
     bindToShader(shader, bindstr) {
-        gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffer);
+        gl.bindBuffer(this.type, this.buffer);
         const blockIndex = gl.getUniformBlockIndex(shader.getProgram(), bindstr);
         gl.uniformBlockBinding(shader.getProgram(), blockIndex, this.bindingpoint);
     }
     
     bind() {
-        gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffer);
+        gl.bindBuffer(this.type, this.buffer);
     }
     
     setData(dataarray, byteoffset) {
-        gl.bufferSubData(gl.UNIFORM_BUFFER, byteoffset, dataarray, 0);
+        gl.bufferSubData(this.type, byteoffset, dataarray, 0);
     }
 }

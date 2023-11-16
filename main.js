@@ -295,7 +295,7 @@ const lightColors = new Float32Array(
         1.0, 1.0, 0.0, 0.5
     ]);
     
-let MVPBuffer = new UniformBuffer(gl, 4 * 16 * 2, 0);
+let MVPBuffer = new GPUBuffer(gl, gl.UNIFORM_BUFFER, 4 * 16 * 2, 0);
 MVPBuffer.bindToShader(mainshader, "MVP");
 MVPBuffer.bindToShader(lightshader, "MVP");
 MVPBuffer.bindToShader(depthshader, "MVP");    
@@ -303,7 +303,7 @@ MVPBuffer.bindToShader(depthshader, "MVP");
 const numLightsBytes = 4 * 4;           //glsl pads to vec4s
 const lightPositionsBytes = 64 * 4 * 4; //glsl pads to vec4s
 const lightColorsBytes = 64 * 4 * 4;    //glsl pads to vec4s
-let lightsBuffer = new UniformBuffer(gl, numLightsBytes + lightPositionsBytes + lightColorsBytes, 1);
+let lightsBuffer = new GPUBuffer(gl, gl.UNIFORM_BUFFER, numLightsBytes + lightPositionsBytes + lightColorsBytes, 1);
 lightsBuffer.setData(numLights, 0);
 lightsBuffer.setData(lightPositions, numLightsBytes);
 lightsBuffer.setData(lightColors, numLightsBytes + lightPositionsBytes);
