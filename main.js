@@ -227,15 +227,8 @@ let light_culling_comp_fragment_source =
     uniform sampler2D depthimage;
     uniform vec2 tile_size;
     
-    #define MAX_LIGHTS_PER_TILE 255 //not using 256 as were using that for the count so there is better byte alignment
-    struct LightVisibility {
-        int count;
-        int lightindex[MAX_LIGHTS_PER_TILE];  
-    };
-    
-    buffer LightTiles {
-        LightVisibility lightvis[];
-    } lightTiles;
+    //first index light count
+    uniform sampler3D lightTiles;
 
     void main() {
         vec2 tile = (aPosition + 1.0) / 2.0 * tile_size;
