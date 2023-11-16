@@ -221,6 +221,7 @@ let light_culling_comp_fragment_source =
     precision mediump float;
 
     const int TILE_SIZE = 16;
+    const int MAX_LIGHTS_PER_TILE = 16;
 
     in vec2 aPosition;
     
@@ -248,6 +249,15 @@ let light_culling_comp_fragment_source =
     layout(location = 6) out vec4 lightOut6;
     layout(location = 7) out vec4 lightOut7;
 
+    struct Fustrum {
+        vec4 planes[6];
+    };
+
+
+    Fustrum createFustrum(ivec2 tile) {
+        mat4 inverse_view_projection = inverse(mvp.view_projection);
+    }
+
     bool inTile(int lightindex) {
         return false;
     }
@@ -272,9 +282,10 @@ let light_culling_comp_fragment_source =
         }
         
         
-        int tilelightdata[16];
+        int tilelightdata[MAX_LIGHTS_PER_TILE];
         int lindex = 0;
         for(int i = 0; i < lights.num_lights; i++) {
+            if(lindex > MAX_LIGHTS_PER_TILE) { break; }
             if(inTile(i)) {
                 tilelightdata[lindex] = i;
                 lindex++;
