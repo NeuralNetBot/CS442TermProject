@@ -239,6 +239,7 @@ let light_culling_comp_fragment_source =
 
     uniform sampler2D depthimage;
     uniform vec2 tile_size;
+    uniform vec2 view_size;
     
     layout(location = 0) out vec4 lightOut0;
     layout(location = 1) out vec4 lightOut1;
@@ -248,18 +249,34 @@ let light_culling_comp_fragment_source =
     layout(location = 5) out vec4 lightOut5;
     layout(location = 6) out vec4 lightOut6;
     layout(location = 7) out vec4 lightOut7;
-
-    struct Fustrum {
+    
+    struct Frustum {
         vec4 planes[6];
+        vec3 points[8];
     };
 
 
-    Fustrum createFustrum(ivec2 tile) {
+    Frustum createFrustum(ivec2 tile) {
         mat4 inverse_view_projection = inverse(mvp.view_projection);
+        Frustum frustum;
+        
+        //ndc = normalized device coords
+        vec2 ndc_size = 2.0 * vec2(TILE_SIZE, TILE_SIZE) / view_size;
+        vec2 ndc_points[4];
+        ndc_points[0] = vec2(-1.0, -1.0) + vec2(tile) * ndc_size;
+        ndc_points[1] = vec2(ndc_points[0].x + ndc_size.x, ndc_points[0].y);
+        ndc_points[2] = ndc_points[0] + ndc_size;
+        ndc_points[3] = vec2(ndc_points[0].x, ndc_size.y + ndc_points[0].y);
+        
+        return frustum;
     }
 
-    bool inTile(int lightindex) {
-        return false;
+    bool inTile(int lightindex, Frustum frustum) {
+        for(int i = 0; i < 6; i++) {
+            if(dot(lights.light_positions[lightindex], frustum.planes[i].xyz) + frustum.planes[i].w < -(1.0 / lights.light_colors[lightindex].w)) {
+                return false;
+            }
+        }
     }
     
     vec4 packInts(int a, int b) {
@@ -281,25 +298,26 @@ let light_culling_comp_fragment_source =
             }
         }
         
+        Frustum frustum = createFrustum(ivec2(tile));
         
         int tilelightdata[MAX_LIGHTS_PER_TILE];
         int lindex = 0;
         for(int i = 0; i < lights.num_lights; i++) {
             if(lindex > MAX_LIGHTS_PER_TILE) { break; }
-            if(inTile(i)) {
+            if(inTile(i, frustum)) {
                 tilelightdata[lindex] = i;
                 lindex++;
             }
         }
         
-        lightOut0 = packInts(lightdata[0], lightdata[1]);
-        lightOut1 = packInts(lightdata[2], lightdata[3]);
-        lightOut2 = packInts(lightdata[4], lightdata[5]);
-        lightOut3 = packInts(lightdata[6], lightdata[7]);
-        lightOut4 = packInts(lightdata[8], lightdata[9]);
-        lightOut5 = packInts(lightdata[10], lightdata[11]);
-        lightOut6 = packInts(lightdata[12], lightdata[13]);
-        lightOut7 = packInts(lightdata[14], lightdata[15]);
+        lightOut0 = packInts(tilelightdata[0], tilelightdata[1]);
+        lightOut1 = packInts(tilelightdata[2], tilelightdata[3]);
+        lightOut2 = packInts(tilelightdata[4], tilelightdata[5]);
+        lightOut3 = packInts(tilelightdata[6], tilelightdata[7]);
+        lightOut4 = packInts(tilelightdata[8], tilelightdata[9]);
+        lightOut5 = packInts(tilelightdata[10], tilelightdata[11]);
+        lightOut6 = packInts(tilelightdata[12], tilelightdata[13]);
+        lightOut7 = packInts(tilelightdata[14], tilelightdata[15]);
     }
 `;
 
