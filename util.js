@@ -25,16 +25,33 @@ function createDepthFramebuffer(gl, width, height) {
     return { framebuffer: depthFramebuffer, texture: depthTexture };
 }
 
-function destroyFramebuffer(gl, frameBufferInfo) {
-    gl.deleteFramebuffer(frameBufferInfo.framebuffer);
+function destroyDepthFramebuffer(gl, frameBufferInfo) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.deleteTexture(frameBufferInfo.texture);
+    gl.deleteFramebuffer(frameBufferInfo.framebuffer);
 }
+
+function destroyFramebuffer(gl, frameBufferInfo) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    frameBufferInfo.textures.forEach((attachment) => {
+        gl.deleteTexture(attachment);
+    });
+    gl.deleteFramebuffer(frameBufferInfo.framebuffer);
+}
+
 
 function createFramebuffer(gl, width, height, numAttachments) {
     const framebuffer = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
 
     const colorAttachments = [];
+    const colorAttachmentIDS = 
+        [
+            gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2, gl.COLOR_ATTACHMENT3,
+            gl.COLOR_ATTACHMENT4, gl.COLOR_ATTACHMENT5, gl.COLOR_ATTACHMENT6, gl.COLOR_ATTACHMENT7,
+            gl.COLOR_ATTACHMENT8, gl.COLOR_ATTACHMENT9, gl.COLOR_ATTACHMENT10, gl.COLOR_ATTACHMENT11,
+            gl.COLOR_ATTACHMENT12, gl.COLOR_ATTACHMENT13, gl.COLOR_ATTACHMENT14, gl.COLOR_ATTACHMENT15
+        ];
     for (let i = 0; i < numAttachments; i++) {
         const texture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -44,13 +61,14 @@ function createFramebuffer(gl, width, height, numAttachments) {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.TEXTURE_2D, texture, 0);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, colorAttachmentIDS[i], gl.TEXTURE_2D, texture, 0);
         colorAttachments.push(texture);
     }
 
     const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
     if (status !== gl.FRAMEBUFFER_COMPLETE) {
-        console.error('Framebuffer is incomplete');
+        console.error('Framebuffer creation error: ' + status.toString(16));
+        return null;
     }
 
     const drawBuffers = [];

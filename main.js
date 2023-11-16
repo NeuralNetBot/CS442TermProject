@@ -248,6 +248,14 @@ let light_culling_comp_fragment_source =
     layout(location = 6) out vec4 lightOut6;
     layout(location = 7) out vec4 lightOut7;
 
+    bool inTile(int lightindex) {
+        return false;
+    }
+    
+    vec4 packInts(int a, int b) {
+        return vec4(float(a & 0xFF) / 255.0, float((a >> 8) & 0xFF) / 255.0, float(b & 0xFF) / 255.0, float((b >> 8) & 0xFF) / 255.0);
+    }
+
     void main() {
         vec2 tile = (aPosition + 1.0) / 2.0 * tile_size;
         int tileindex = int(tile.x) * int(tile_size.x) + int(tile.y);
@@ -260,17 +268,27 @@ let light_culling_comp_fragment_source =
                 float depth = texture(depthimage, (tile * float(TILE_SIZE)) + vec2(x, y) ).r;
                 maxDepth = max(maxDepth, depth);
                 minDepth = min(minDepth, depth);
-            }    
+            }
         }
         
-        lightOut0 = vec4(0.0, 0.0, 0.0, 0.0);
-        lightOut1 = vec4(0.0, 0.0, 0.0, 0.0);
-        lightOut2 = vec4(0.0, 0.0, 0.0, 0.0);
-        lightOut3 = vec4(0.0, 0.0, 0.0, 0.0);
-        lightOut4 = vec4(0.0, 0.0, 0.0, 0.0);
-        lightOut5 = vec4(0.0, 0.0, 0.0, 0.0);
-        lightOut6 = vec4(0.0, 0.0, 0.0, 0.0);
-        lightOut7 = vec4(0.0, 0.0, 0.0, 0.0);
+        
+        int tilelightdata[16];
+        int lindex = 0;
+        for(int i = 0; i < lights.num_lights; i++) {
+            if(inTile(i)) {
+                tilelightdata[lindex] = i;
+                lindex++;
+            }
+        }
+        
+        lightOut0 = packInts(lightdata[0], lightdata[1]);
+        lightOut1 = packInts(lightdata[2], lightdata[3]);
+        lightOut2 = packInts(lightdata[4], lightdata[5]);
+        lightOut3 = packInts(lightdata[6], lightdata[7]);
+        lightOut4 = packInts(lightdata[8], lightdata[9]);
+        lightOut5 = packInts(lightdata[10], lightdata[11]);
+        lightOut6 = packInts(lightdata[12], lightdata[13]);
+        lightOut7 = packInts(lightdata[14], lightdata[15]);
     }
 `;
 
@@ -280,7 +298,7 @@ let depthshader = Shader.createShader(gl, depth_vertex_source, depth_fragment_so
 
 let tilecount_x = Math.ceil(canvas.width / 16);
 let tilecount_y = Math.ceil(canvas.height / 16);
-light_cull_shader = new ComputeShader(gl, Shader.createShader(gl, light_culling_comp_vertex_source, light_culling_comp_fragment_source), tilecount_x, tilecount_y);
+light_cull_shader = new ComputeShader(gl, Shader.createShader(gl, light_culling_comp_vertex_source, light_culling_comp_fragment_source), tilecount_x, tilecount_y, 8);
 
 gl.clearColor( 0.0, 0.0, 0.0, 1 );
 gl.enable( gl.DEPTH_TEST );
@@ -364,7 +382,7 @@ function resizeCanvas() {
         camera.setPerspectiveMat(Mat4.perspective(Math.PI / 2, canvas.width / canvas.height, 0.1, 100));
     }
     
-    if (depthFrameBufferInfo) { destroyFramebuffer(gl, depthFrameBufferInfo); }
+    if (depthFrameBufferInfo) { destroyDepthFramebuffer(gl, depthFrameBufferInfo); }
     depthFrameBufferInfo = createDepthFramebuffer(gl, canvas.width, canvas.height);
 
     if(light_cull_shader) {
