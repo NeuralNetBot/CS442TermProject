@@ -304,9 +304,9 @@ const numLightsBytes = 4 * 4;           //glsl pads to vec4s
 const lightPositionsBytes = 64 * 4 * 4; //glsl pads to vec4s
 const lightColorsBytes = 64 * 4 * 4;    //glsl pads to vec4s
 let lightsBuffer = new UniformBuffer(gl, numLightsBytes + lightPositionsBytes + lightColorsBytes, 1);
-gl.bufferSubData(gl.UNIFORM_BUFFER, 0, numLights, 0, 1);
-gl.bufferSubData(gl.UNIFORM_BUFFER, numLightsBytes, lightPositions, 0);
-gl.bufferSubData(gl.UNIFORM_BUFFER, numLightsBytes + lightPositionsBytes, lightColors, 0);
+lightsBuffer.setData(numLights, 0);
+lightsBuffer.setData(lightPositions, numLightsBytes);
+lightsBuffer.setData(lightColors, numLightsBytes + lightPositionsBytes);
 lightsBuffer.bindToShader(mainshader, "Lights");
 lightsBuffer.bindToShader(lightshader, "Lights");
 
@@ -363,8 +363,8 @@ function renderObjects(now, current_shader, depthonly) {
     gl.uniform3f( gl.getUniformLocation( current_shader, "view_pos" ), viewpos.x, viewpos.y, viewpos.z );
     
     MVPBuffer.bind();
-    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, model.asColumnMajorFloat32Array(), 0);
-    gl.bufferSubData(gl.UNIFORM_BUFFER, 4 * 16, cameramat.asColumnMajorFloat32Array(), 0);
+    MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
+    MVPBuffer.setData(cameramat.asColumnMajorFloat32Array(), 4 * 16);
     
     if (planemesh) {
         planemesh.render(gl, current_shader);

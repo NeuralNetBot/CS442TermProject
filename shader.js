@@ -107,4 +107,8 @@ class UniformBuffer {
     bind() {
         gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffer);
     }
+    
+    setData(dataarray, byteoffset) {
+        gl.bufferSubData(gl.UNIFORM_BUFFER, byteoffset, dataarray, 0);
+    }
 }
