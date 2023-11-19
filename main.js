@@ -121,9 +121,9 @@ let cube_map_vertex_source =
     out vec3 v_pos;
 
     void main(void ) {
-        v_normal = normalize(mat3(mvp.model) * normal);
-        gl_Position = mvp.view_projection * mvp.model * vec4(position, 1.0);
-        v_pos = vec3(mvp.model * vec4(position, 1.0));
+        v_normal = normal;
+        gl_Position = mvp.view_projection * vec4(500.0 * position, 1.0);
+        v_pos = position;
         v_uv = uv;
     } `;
 
@@ -466,9 +466,10 @@ let last_update = performance.now();
 //Mesh.from_obj_file( gl, "untitled.obj", shader_program, mesh_loaded );
 let planemesh = Mesh.plane(gl);
 let sphere = Mesh.sphere( gl, 8 );
+let skyboxmesh = Mesh.box(gl);
 
 
-let perspective = Mat4.perspective(Math.PI / 2, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 100);
+let perspective = Mat4.perspective(Math.PI / 2, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000);
 camera = new Camera(new Vec4(0, 0, 2, 0), 0, 0, 0, perspective);
 
 
@@ -521,6 +522,7 @@ Input.init();
 
 let doneload = false;
 let tex = loadTexture(gl, "metal_scale.png", function() { doneload = true; });
+let cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bottom.jpg', 'front.jpg', 'back.jpg');
 requestAnimationFrame(render);
 
 function handleMouse(deltaX, deltaY) {
@@ -571,8 +573,12 @@ function renderObjects(now, current_shader, depthonly) {
     }
     //render objects that we dont want to be included in our depth information
     if(!depthonly) {
+        cubemapshader.use();
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube_map_texture);
+        skyboxmesh.render(gl, cubemapshader.getProgram());
         lightshader.use();
         sphere.render(gl, lightshader.getProgram(), numLights);
+
     }
     
 }
