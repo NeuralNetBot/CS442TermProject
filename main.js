@@ -103,6 +103,131 @@ let fragment_source =
     }
 `;
 
+let cube_map_vertex_source =
+    `#version 300 es
+    precision mediump float;
+
+    uniform MVP {
+        mat4 model;
+        mat4 view_projection;
+    } mvp;
+
+    in vec3 position;
+    in vec3 normal;
+    in vec2 uv;
+
+    out vec3 v_normal;
+    out vec2 v_uv;
+    out vec3 v_pos;
+
+    void main(void ) {
+        v_normal = normalize(mat3(mvp.model) * normal);
+        gl_Position = mvp.view_projection * mvp.model * vec4(position, 1.0);
+        v_pos = vec3(mvp.model * vec4(position, 1.0));
+        v_uv = uv;
+    } `;
+
+
+let cube_map_fragment_source =
+    `#version 300 es
+    precision mediump float;
+
+    uniform vec3 camera_position;
+    uniform samplerCube skybox;
+
+    in vec3 v_normal;
+    in vec2 v_uv;
+    in vec3 v_pos;
+
+    out vec4 c_m_color;
+
+    void main( void ) {
+        c_m_color = texture(skybox, v_pos);
+    } `;
+
+
+let water_vertex_source =
+    `#version 300 es
+    precision mediump float;
+    uniform MVP {
+        mat4 model;
+        mat4 view_projection;
+    } mvp;
+    uniform float time;
+
+    in vec3 position;
+    in vec3 normal;
+    in vec2 uv;
+
+    out vec3 v_normal;
+    out vec2 v_uv;
+    out vec3 v_pos;
+
+    void main( void ) {
+
+        
+
+        float displacement = position.x + time;
+        //vec3 wave_pos = vec3(position.x, cos(displacement + position.z) + position.y, position.z);
+
+        // based off of partial derivative of wave
+        //v_normal = normalize(normalize(vec3(-sin(displacement + position.z), 1.0, 0.0 * normal.y)) * mat3(mvp.model));
+
+        vec3 wave_pos = vec3(position.x, cos(displacement + cos(position.z)) + position.y, position.z);
+
+        // based off of partial derivative of wave
+        v_normal = normalize(normalize(vec3(1.0, -sin(displacement + position.z), 0.0 * normal.y)) * mat3(mvp.model));
+
+
+        gl_Position = mvp.view_projection * mvp.model * vec4( wave_pos, 1.0 );
+        v_pos = vec3(mvp.model * vec4(wave_pos, 1.0));
+        v_uv = uv;
+       
+    } `;
+
+let water_fragment_source =
+    `#version 300 es
+    precision mediump float;
+    out vec4 t_f_color;
+    uniform float alpha;
+
+    in vec3 v_normal;
+    in vec2 v_uv;
+    in vec3 v_pos;
+
+    uniform float mat_ambient;
+    uniform float mat_diffuse;
+    uniform float mat_specular;
+    uniform float mat_shininess;
+    uniform vec3 camera_position;
+
+    uniform samplerCube skybox;
+
+    vec3 sun_color = vec3(1.0, 1.0, 1.0);
+    vec3 light_direction = normalize(vec3(-1.0, -1.0, -1.0));
+
+
+    vec3 calcLight(vec3 light_direcion, vec3 light_color)
+    {
+        float L = max(dot(v_normal, light_direcion), 0.0);
+        vec3 diffuse = mat_diffuse * light_color * L;
+
+        vec3 reflection = reflect(-light_direcion, v_normal);
+        vec3 view_dir = normalize(camera_position - v_pos);
+        float spec = pow(max(dot(view_dir, reflection), 0.0), mat_shininess) * L;
+        vec3 specular = light_color * spec * mat_specular;
+
+        return diffuse + specular;
+    }
+
+
+    void main( void ) {
+        vec3 I = normalize(v_pos - camera_position);
+        vec3 R = reflect(I, normalize(v_normal));
+
+        t_f_color = vec4(texture(skybox, R).rgb, 1.0) * vec4(1.0, 1.0, 1.0, alpha) * vec4(calcLight(-light_direction, sun_color), 1.0);
+    } `;
+
 let depth_vertex_source = 
 `   #version 300 es
     precision mediump float;
@@ -325,6 +450,8 @@ let light_culling_comp_fragment_source =
 let mainshader = Shader.createShader(gl, vertex_source, fragment_source);
 let lightshader = Shader.createShader(gl, light_draw_vertex_source, light_draw_fragment_source);
 let depthshader = Shader.createShader(gl, depth_vertex_source, depth_fragment_source);
+let cubemapshader = Shader.createShader(gl, cube_map_vertex_source, cube_map_fragment_source);
+let watershader = Shader.createShader(gl, water_vertex_source, water_fragment_source);
 
 let tilecount_x = Math.ceil(canvas.width / 16);
 let tilecount_y = Math.ceil(canvas.height / 16);
