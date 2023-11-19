@@ -189,16 +189,16 @@ let water_fragment_source =
     `#version 300 es
     precision mediump float;
     out vec4 t_f_color;
-    uniform float alpha;
+    float alpha = 0.9;
 
     in vec3 v_normal;
     in vec2 v_uv;
     in vec3 v_pos;
 
-    uniform float mat_ambient;
-    uniform float mat_diffuse;
-    uniform float mat_specular;
-    uniform float mat_shininess;
+    float mat_ambient = 0.25;
+    float mat_diffuse = 1.0;
+    float mat_specular = 2.0;
+    float mat_shininess = 4.0;
     uniform vec3 camera_position;
 
     uniform samplerCube skybox;
@@ -225,7 +225,7 @@ let water_fragment_source =
         vec3 I = normalize(v_pos - camera_position);
         vec3 R = reflect(I, normalize(v_normal));
 
-        t_f_color = vec4(texture(skybox, R).rgb, 1.0) * vec4(1.0, 1.0, 1.0, alpha) * vec4(calcLight(-light_direction, sun_color), 1.0);
+        t_f_color = vec4(texture(skybox, R).rgb, 1.0) * vec4(0.3, 0.56, 0.95, alpha) * vec4(calcLight(-light_direction, sun_color), 1.0);
     } `;
 
 let depth_vertex_source = 
@@ -523,6 +523,9 @@ Input.init();
 let doneload = false;
 let tex = loadTexture(gl, "metal_scale.png", function() { doneload = true; });
 let cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bottom.jpg', 'front.jpg', 'back.jpg');
+gl.enable( gl.BLEND );
+gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
+gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ZERO);
 requestAnimationFrame(render);
 
 function handleMouse(deltaX, deltaY) {
@@ -578,7 +581,12 @@ function renderObjects(now, current_shader, depthonly) {
         skyboxmesh.render(gl, cubemapshader.getProgram());
         lightshader.use();
         sphere.render(gl, lightshader.getProgram(), numLights);
-
+        watershader.use();
+        model = Mat4.translation(0.0, 0.0, 0.0);
+        MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
+        gl.uniform1f(gl.getUniformLocation(watershader.getProgram(), "time"), now / 1000);
+        gl.uniform3f( gl.getUniformLocation( watershader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
+        planemesh.render(gl, watershader.getProgram());
     }
     
 }
