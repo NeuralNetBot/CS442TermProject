@@ -103,6 +103,128 @@ let fragment_source =
     }
 `;
 
+let cube_map_vertex_source =
+    `#version 300 es
+    precision mediump float;
+
+    uniform MVP {
+        mat4 model;
+        mat4 view_projection;
+    } mvp;
+
+    in vec3 position;
+    in vec3 normal;
+    in vec2 uv;
+
+    out vec3 v_normal;
+    out vec2 v_uv;
+    out vec3 v_pos;
+
+    void main(void ) {
+        v_normal = normal;
+        gl_Position = mvp.view_projection * vec4(500.0 * position, 1.0);
+        v_pos = position;
+        v_uv = uv;
+    } `;
+
+
+let cube_map_fragment_source =
+    `#version 300 es
+    precision mediump float;
+
+    uniform vec3 camera_position;
+    uniform samplerCube skybox;
+
+    in vec3 v_normal;
+    in vec2 v_uv;
+    in vec3 v_pos;
+
+    out vec4 c_m_color;
+
+    void main( void ) {
+        c_m_color = texture(skybox, v_pos);
+    } `;
+
+
+let water_vertex_source =
+    `#version 300 es
+    precision mediump float;
+    uniform MVP {
+        mat4 model;
+        mat4 view_projection;
+    } mvp;
+    uniform float time;
+
+    in vec3 position;
+    in vec3 normal;
+    in vec2 uv;
+
+    out vec3 v_normal;
+    out vec2 v_uv;
+    out vec3 v_pos;
+
+    float frequency = 10.0;
+    float amplitude = 0.05;
+    float speed = 3.0;
+
+    void main( void ) {
+
+        float displacement = (position.x + position.z) * frequency + time * speed;
+        vec3 wave_pos = vec3(position.x, amplitude * cos(displacement) + position.y, position.z);
+
+        // based off of partial derivative of wave
+        v_normal = normalize(normalize(vec3(1.0, amplitude * -sin(displacement), 0.0 * normal.y)) * mat3(mvp.model));
+
+
+        gl_Position = mvp.view_projection * mvp.model * vec4( wave_pos, 1.0 );
+        v_pos = vec3(mvp.model * vec4(wave_pos, 1.0));
+        v_uv = uv;
+       
+    } `;
+
+let water_fragment_source =
+    `#version 300 es
+    precision mediump float;
+    out vec4 t_f_color;
+    float alpha = 0.9;
+
+    in vec3 v_normal;
+    in vec2 v_uv;
+    in vec3 v_pos;
+
+    float mat_ambient = 0.25;
+    float mat_diffuse = 1.0;
+    float mat_specular = 2.0;
+    float mat_shininess = 4.0;
+    uniform vec3 camera_position;
+
+    uniform samplerCube skybox;
+
+    vec3 sun_color = vec3(1.0, 1.0, 1.0);
+    vec3 light_direction = normalize(vec3(-1.0, -1.0, -1.0));
+
+
+    vec3 calcLight(vec3 light_direcion, vec3 light_color)
+    {
+        float L = max(dot(v_normal, light_direcion), 0.0);
+        vec3 diffuse = mat_diffuse * light_color * L;
+
+        vec3 reflection = reflect(-light_direcion, v_normal);
+        vec3 view_dir = normalize(camera_position - v_pos);
+        float spec = pow(max(dot(view_dir, reflection), 0.0), mat_shininess) * L;
+        vec3 specular = light_color * spec * mat_specular;
+
+        return diffuse + specular;
+    }
+
+
+    void main( void ) {
+        vec3 I = normalize(v_pos - camera_position);
+        vec3 R = reflect(I, normalize(v_normal));
+
+        t_f_color = vec4(texture(skybox, R).rgb, 1.0) * vec4(0.3, 0.56, 0.95, alpha) * vec4(calcLight(-light_direction, sun_color), 1.0);
+    } `;
+
 let depth_vertex_source = 
 `   #version 300 es
     precision mediump float;
@@ -325,6 +447,8 @@ let light_culling_comp_fragment_source =
 let mainshader = Shader.createShader(gl, vertex_source, fragment_source);
 let lightshader = Shader.createShader(gl, light_draw_vertex_source, light_draw_fragment_source);
 let depthshader = Shader.createShader(gl, depth_vertex_source, depth_fragment_source);
+let cubemapshader = Shader.createShader(gl, cube_map_vertex_source, cube_map_fragment_source);
+let watershader = Shader.createShader(gl, water_vertex_source, water_fragment_source);
 
 let tilecount_x = Math.ceil(canvas.width / 16);
 let tilecount_y = Math.ceil(canvas.height / 16);
@@ -335,13 +459,13 @@ gl.enable( gl.DEPTH_TEST );
 
 let last_update = performance.now();
 
-//let objmesh = null;
-//Mesh.from_obj_file( gl, "untitled.obj", shader_program, mesh_loaded );
-let planemesh = Mesh.plane(gl);
+let planemesh = null;
+Mesh.from_obj_file( gl, "plane.obj", mesh_loaded );//Mesh.plane(gl);
 let sphere = Mesh.sphere( gl, 8 );
+let skyboxmesh = Mesh.box(gl);
 
 
-let perspective = Mat4.perspective(Math.PI / 2, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 100);
+let perspective = Mat4.perspective(Math.PI / 2, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000);
 camera = new Camera(new Vec4(0, 0, 2, 0), 0, 0, 0, perspective);
 
 
@@ -394,6 +518,10 @@ Input.init();
 
 let doneload = false;
 let tex = loadTexture(gl, "metal_scale.png", function() { doneload = true; });
+let cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bottom.jpg', 'front.jpg', 'back.jpg');
+gl.enable( gl.BLEND );
+gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
+gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ZERO);
 requestAnimationFrame(render);
 
 function handleMouse(deltaX, deltaY) {
@@ -401,7 +529,7 @@ function handleMouse(deltaX, deltaY) {
 }
 
 function mesh_loaded(mesh) {
-    objmesh = mesh;
+    planemesh = mesh;
 }
 
 function resizeCanvas() {
@@ -429,7 +557,7 @@ function renderObjects(now, current_shader, depthonly) {
     let mxz = Mat4.rotation_xz( 0.0 );
     let tran = Mat4.translation(0.0, -1.0, 0.0);
     
-    let model = tran.mul(mxz);
+    let model = Mat4.scale(10, 10, 10).mul(tran.mul(mxz));
     
     let cameramat = camera.getMatrix();
     let viewpos = camera.getPosition();
@@ -444,8 +572,17 @@ function renderObjects(now, current_shader, depthonly) {
     }
     //render objects that we dont want to be included in our depth information
     if(!depthonly) {
+        cubemapshader.use();
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube_map_texture);
+        skyboxmesh.render(gl, cubemapshader.getProgram());
         lightshader.use();
         sphere.render(gl, lightshader.getProgram(), numLights);
+        watershader.use();
+        model = Mat4.scale(10, 10, 10).mul(Mat4.translation(0.0, 0.0, 0.0));
+        MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
+        gl.uniform1f(gl.getUniformLocation(watershader.getProgram(), "time"), now / 1000);
+        gl.uniform3f( gl.getUniformLocation( watershader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
+        planemesh.render(gl, watershader.getProgram());
     }
     
 }

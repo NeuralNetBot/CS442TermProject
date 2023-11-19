@@ -101,3 +101,68 @@ function loadTexture(gl, path, callback) {
     
     return tex;
 }
+
+function loadCubeMap(gl, right, left, top, bottom, front, back) {
+    let cube_map_texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube_map_texture);
+
+    const faces = [
+        {
+            target: gl.TEXTURE_CUBE_MAP_POSITIVE_X,
+            jpg: right,
+        },
+
+        {
+            target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X,
+            jpg: left,
+        },
+
+        {
+            target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y,
+            jpg: top,
+        },
+
+        {
+            target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y,
+            jpg: bottom,
+        },
+
+        {
+            target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z,
+            jpg: front,
+        },
+
+        {
+            target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z,
+            jpg: back,
+        },
+    ];
+
+
+    faces.forEach((face) => {
+        const { target, jpg } = face;
+
+        const level = 0;
+        const internal_format = gl.RGBA;
+        const w = gl.canvas.width;
+        const h = gl.canvas.height;
+        const format = gl.RGBA;
+        const type = gl.UNSIGNED_BYTE;
+
+        const image1 = new Image();
+        image1.src = jpg;
+
+        image1.onload = function () {
+            gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube_map_texture);
+            gl.texImage2D(target, level, internal_format, format, type, image1);
+        }
+    });
+
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+
+    return cube_map_texture;
+}
