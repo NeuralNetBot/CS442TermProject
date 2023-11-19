@@ -163,20 +163,17 @@ let water_vertex_source =
     out vec2 v_uv;
     out vec3 v_pos;
 
+    float frequency = 10.0;
+    float amplitude = 0.05;
+    float speed = 3.0;
+
     void main( void ) {
 
-        
-
-        float displacement = position.x + time;
-        //vec3 wave_pos = vec3(position.x, cos(displacement + position.z) + position.y, position.z);
+        float displacement = (position.x + position.z) * frequency + time * speed;
+        vec3 wave_pos = vec3(position.x, amplitude * cos(displacement) + position.y, position.z);
 
         // based off of partial derivative of wave
-        //v_normal = normalize(normalize(vec3(-sin(displacement + position.z), 1.0, 0.0 * normal.y)) * mat3(mvp.model));
-
-        vec3 wave_pos = vec3(position.x, cos(displacement + cos(position.z)) + position.y, position.z);
-
-        // based off of partial derivative of wave
-        v_normal = normalize(normalize(vec3(1.0, -sin(displacement + position.z), 0.0 * normal.y)) * mat3(mvp.model));
+        v_normal = normalize(normalize(vec3(1.0, amplitude * -sin(displacement), 0.0 * normal.y)) * mat3(mvp.model));
 
 
         gl_Position = mvp.view_projection * mvp.model * vec4( wave_pos, 1.0 );
@@ -462,9 +459,8 @@ gl.enable( gl.DEPTH_TEST );
 
 let last_update = performance.now();
 
-//let objmesh = null;
-//Mesh.from_obj_file( gl, "untitled.obj", shader_program, mesh_loaded );
-let planemesh = Mesh.plane(gl);
+let planemesh = null;
+Mesh.from_obj_file( gl, "plane.obj", mesh_loaded );//Mesh.plane(gl);
 let sphere = Mesh.sphere( gl, 8 );
 let skyboxmesh = Mesh.box(gl);
 
@@ -533,7 +529,7 @@ function handleMouse(deltaX, deltaY) {
 }
 
 function mesh_loaded(mesh) {
-    objmesh = mesh;
+    planemesh = mesh;
 }
 
 function resizeCanvas() {
@@ -561,7 +557,7 @@ function renderObjects(now, current_shader, depthonly) {
     let mxz = Mat4.rotation_xz( 0.0 );
     let tran = Mat4.translation(0.0, -1.0, 0.0);
     
-    let model = tran.mul(mxz);
+    let model = Mat4.scale(10, 10, 10).mul(tran.mul(mxz));
     
     let cameramat = camera.getMatrix();
     let viewpos = camera.getPosition();
@@ -582,7 +578,7 @@ function renderObjects(now, current_shader, depthonly) {
         lightshader.use();
         sphere.render(gl, lightshader.getProgram(), numLights);
         watershader.use();
-        model = Mat4.translation(0.0, 0.0, 0.0);
+        model = Mat4.scale(10, 10, 10).mul(Mat4.translation(0.0, 0.0, 0.0));
         MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
         gl.uniform1f(gl.getUniformLocation(watershader.getProgram(), "time"), now / 1000);
         gl.uniform3f( gl.getUniformLocation( watershader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
