@@ -381,32 +381,33 @@ let light_culling_comp_fragment_source =
     Frustum createFrustum(vec2 tile, float minDepth, float maxDepth) {
         Frustum frustum;
 
-		vec2 negativeStep = (2.0 * tile) / tile_count;
-		vec2 positiveStep = (2.0 * (tile + vec2(1, 1))) / tile_count;
+		vec2 negativeNDC = (2.0 * tile) / tile_count;
+		vec2 positiveNDC = (2.0 * (tile + vec2(1.0, 1.0))) / tile_count;
 
-		frustum.planes[0] = vec4(1.0, 0.0, 0.0, 1.0 - negativeStep.x); // Left
-		frustum.planes[1] = vec4(-1.0, 0.0, 0.0, -1.0 + positiveStep.x); // Right
-		frustum.planes[2] = vec4(0.0, 1.0, 0.0, 1.0 - negativeStep.y); // Bottom
-		frustum.planes[3] = vec4(0.0, -1.0, 0.0, -1.0 + positiveStep.y); // Top
-		frustum.planes[4] = vec4(0.0, 0.0, -1.0, -minDepth); // Near
-		frustum.planes[5] = vec4(0.0, 0.0, 1.0, maxDepth); // Far
+		frustum.planes[0] = vec4(1.0, 0.0, 0.0, 1.0 - negativeNDC.x);   //left
+		frustum.planes[1] = vec4(-1.0, 0.0, 0.0, -1.0 + positiveNDC.x); //right
+		frustum.planes[2] = vec4(0.0, 1.0, 0.0, 1.0 - negativeNDC.y);   //bottom
+		frustum.planes[3] = vec4(0.0, -1.0, 0.0, -1.0 + positiveNDC.y); //top
+		frustum.planes[4] = vec4(0.0, 0.0, -1.0, -minDepth);            //near
+		frustum.planes[5] = vec4(0.0, 0.0, 1.0, maxDepth);              //far
 
 		for (int i = 0; i < 4; i++) {
 			frustum.planes[i] *= mvp.view_projection;
 			frustum.planes[i] /= length(frustum.planes[i].xyz);
 		}
 
-		frustum.planes[4] *= mvp.view_projection;
+		frustum.planes[4] *= mvp.view_projection;//TODO: make just view
 		frustum.planes[4] /= length(frustum.planes[4].xyz);
-		frustum.planes[5] *= mvp.view_projection;
+		frustum.planes[5] *= mvp.view_projection;//TODO: make just view
 		frustum.planes[5] /= length(frustum.planes[5].xyz);
+
         return frustum;
     }
 
     bool inTile(int lightindex, Frustum frustum) {
-        float light_radius = 5.0;
-        for(int i = 0; i < 6; i++) {
-            if(dot(vec4(lights.light_positions[lightindex], 1.0), frustum.planes[i]) + light_radius < 0.0) {
+        float light_radius = 1.0;
+        for(int i = 0; i < 4; i++) {//TODO: 6
+            if(dot(vec4(lights.light_positions[lightindex], 1.0), frustum.planes[i]) < -light_radius) {
                 return false;
             }
         }
@@ -423,7 +424,7 @@ let light_culling_comp_fragment_source =
         
         float maxDepth = 0.0;
         float minDepth = 1.0;
-
+        //TODO: linearize depth
         for(int x = 0; x < TILE_SIZE; x++) {
             for(int y = 0; y < TILE_SIZE; y++) {
                 float depth = texture(depthimage, (tile * float(TILE_SIZE) + vec2(x, y)) / screen_size ).r;
@@ -445,19 +446,14 @@ let light_culling_comp_fragment_source =
             }
         }
         
-        
-        //lightOut0 = packInts(tilelightdata[0], tilelightdata[1]);
-        lightOut0 = vec4(float(lindex) / 16.0, float(lindex) / 16.0, float(lindex) / 16.0, 1.0);
-        //lightOut1 = packInts(tilelightdata[2], tilelightdata[3]);
-        lightOut1 = vec4(screenuv, 0.0, 1.0);
-        //lightOut2 = packInts(tilelightdata[4], tilelightdata[5]);
-        lightOut2 = vec4(minDepth, minDepth, minDepth, 1.0);
-        //lightOut3 = packInts(tilelightdata[6], tilelightdata[7]);
-        lightOut3 = vec4(maxDepth, maxDepth, maxDepth, 1.0);
+        lightOut0 = packInts(tilelightdata[0], tilelightdata[1]);
+        lightOut1 = packInts(tilelightdata[2], tilelightdata[3]);
+        lightOut2 = packInts(tilelightdata[4], tilelightdata[5]);
+        lightOut3 = packInts(tilelightdata[6], tilelightdata[7]);
         lightOut4 = packInts(tilelightdata[8], tilelightdata[9]);
         lightOut5 = packInts(tilelightdata[10], tilelightdata[11]);
         lightOut6 = packInts(tilelightdata[12], tilelightdata[13]);
-        lightOut7 = packInts(tilelightdata[14], tilelightdata[15]);
+        lightOut7 = vec4(float(lindex), float(lindex), float(lindex), 1.0);//packInts(tilelightdata[14], tilelightdata[15]);
     }
 `;
 
@@ -500,7 +496,7 @@ gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_shininess" ),
 const numLights = new Int32Array([4]);
 const lightPositions = new Float32Array(
     [
-        -2.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
         5.0, 1.0, 0.0, 0.0,
         0.0, 0.0, -2.0, 0.0,
         0.0, 1.0, 5.0, 0.0
@@ -646,6 +642,8 @@ function render(now) {
     gl.useProgram(light_cull_shader.getProgram());
     gl.uniform2f( gl.getUniformLocation( light_cull_shader.getProgram(), "tile_count" ), tilecount_x, tilecount_y );
     gl.uniform2f( gl.getUniformLocation( light_cull_shader.getProgram(), "screen_size" ), canvas.width, canvas.height );
+    let viewpos = camera.getPosition();
+    gl.uniform3f( gl.getUniformLocation( light_cull_shader.getProgram(), "view_pos" ), viewpos.x, viewpos.y, viewpos.z );
     light_cull_shader.dispatch();
 
 
