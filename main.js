@@ -379,17 +379,17 @@ let light_culling_comp_fragment_source =
     };
 
     Frustum createFrustum(vec2 tile, float minDepth, float maxDepth) {
-		vec2 negativeStep = (2.0 * tile) / tile_count;
-		vec2 positiveStep = (2.0 * (tile + vec2(1.0, 1.0))) / tile_count;
-
         Frustum frustum;
 
-		frustum.planes[0] = vec4(1.0, 0.0, 0.0, 1.0 - negativeStep.x);   //left
-		frustum.planes[1] = vec4(-1.0, 0.0, 0.0, -1.0 + positiveStep.x); //right
-		frustum.planes[2] = vec4(0.0, 1.0, 0.0, 1.0 - negativeStep.y);   //bottom
-		frustum.planes[3] = vec4(0.0, -1.0, 0.0, -1.0 + positiveStep.y); //top
-		frustum.planes[4] = vec4(0.0, 0.0, -1.0, -minDepth);             //near
-		frustum.planes[5] = vec4(0.0, 0.0, 1.0, maxDepth);               //far
+		vec2 negativeStep = (2.0 * tile) / tile_count;
+		vec2 positiveStep = (2.0 * (tile + vec2(1, 1))) / tile_count;
+
+		frustum.planes[0] = vec4(1.0, 0.0, 0.0, 1.0 - negativeStep.x); // Left
+		frustum.planes[1] = vec4(-1.0, 0.0, 0.0, -1.0 + positiveStep.x); // Right
+		frustum.planes[2] = vec4(0.0, 1.0, 0.0, 1.0 - negativeStep.y); // Bottom
+		frustum.planes[3] = vec4(0.0, -1.0, 0.0, -1.0 + positiveStep.y); // Top
+		frustum.planes[4] = vec4(0.0, 0.0, -1.0, -minDepth); // Near
+		frustum.planes[5] = vec4(0.0, 0.0, 1.0, maxDepth); // Far
 
 		for (int i = 0; i < 4; i++) {
 			frustum.planes[i] *= mvp.view_projection;
@@ -400,7 +400,6 @@ let light_culling_comp_fragment_source =
 		frustum.planes[4] /= length(frustum.planes[4].xyz);
 		frustum.planes[5] *= mvp.view_projection;
 		frustum.planes[5] /= length(frustum.planes[5].xyz);
-    
         return frustum;
     }
 
@@ -448,10 +447,13 @@ let light_culling_comp_fragment_source =
         
         
         //lightOut0 = packInts(tilelightdata[0], tilelightdata[1]);
-        lightOut0 = vec4(inTile(0, frustum) ? 0.0 : 1.0, inTile(1, frustum) ? 0.0 : 1.0, inTile(2, frustum) ? 0.0 : 1.0, 1.0);
-        lightOut1 = packInts(tilelightdata[2], tilelightdata[3]);
-        lightOut2 = packInts(tilelightdata[4], tilelightdata[5]);
-        lightOut3 = packInts(tilelightdata[6], tilelightdata[7]);
+        lightOut0 = vec4(float(lindex) / 16.0, float(lindex) / 16.0, float(lindex) / 16.0, 1.0);
+        //lightOut1 = packInts(tilelightdata[2], tilelightdata[3]);
+        lightOut1 = vec4(screenuv, 0.0, 1.0);
+        //lightOut2 = packInts(tilelightdata[4], tilelightdata[5]);
+        lightOut2 = vec4(minDepth, minDepth, minDepth, 1.0);
+        //lightOut3 = packInts(tilelightdata[6], tilelightdata[7]);
+        lightOut3 = vec4(maxDepth, maxDepth, maxDepth, 1.0);
         lightOut4 = packInts(tilelightdata[8], tilelightdata[9]);
         lightOut5 = packInts(tilelightdata[10], tilelightdata[11]);
         lightOut6 = packInts(tilelightdata[12], tilelightdata[13]);
