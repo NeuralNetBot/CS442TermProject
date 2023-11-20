@@ -561,33 +561,36 @@ function resizeCanvas() {
     gl.viewport(0, 0, canvas.width, canvas.height);
 }
 
-function renderObjects(now, current_shader, depthonly) {
-    
-    let mxz = Mat4.rotation_xz( 0.0 );
-    let tran = Mat4.translation(0.0, -1.0, 0.0);
-    
-    let model = Mat4.scale(10, 10, 10).mul(tran.mul(mxz));
+function renderObjects(now, depthonly) {
+    let currentshader = mainshader.getProgram();
+    if(depthonly) {
+        currentshader = depthshader.getProgram();
+    }
+
+    let model = Mat4.translation(0.0, -1.0, 0.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_xz( 0.0 )));
     
     let cameramat = camera.getMatrix();
     let viewpos = camera.getPosition();
-    gl.uniform3f( gl.getUniformLocation( current_shader, "view_pos" ), viewpos.x, viewpos.y, viewpos.z );
+    gl.uniform3f( gl.getUniformLocation( currentshader, "view_pos" ), viewpos.x, viewpos.y, viewpos.z );
     
     MVPBuffer.bind();
     MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
     MVPBuffer.setData(cameramat.asColumnMajorFloat32Array(), 4 * 16);
     
     if (planemesh) {
-        planemesh.render(gl, current_shader);
+        planemesh.render(gl, currentshader);
     }
     //render objects that we dont want to be included in our depth information
     if(!depthonly) {
         cubemapshader.use();
         gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube_map_texture);
         skyboxmesh.render(gl, cubemapshader.getProgram());
+
         lightshader.use();
         sphere.render(gl, lightshader.getProgram(), numLights);
+
         watershader.use();
-        model = Mat4.scale(10, 10, 10).mul(Mat4.translation(0.0, 0.0, 0.0));
+        model = Mat4.translation(0.0, 0.0, 0.0).mul(Mat4.scale(10, 10, 10));
         MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
         gl.uniform1f(gl.getUniformLocation(watershader.getProgram(), "time"), now / 1000);
         gl.uniform3f( gl.getUniformLocation( watershader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
@@ -629,7 +632,7 @@ function render(now) {
     
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     depthshader.use();
-    renderObjects(now, depthshader.getProgram(), true);
+    renderObjects(now, true);
 
     gl.bindTexture( gl.TEXTURE_2D, depthFrameBufferInfo.texture);
     light_cull_shader.dispatch();
@@ -643,7 +646,7 @@ function render(now) {
     
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     mainshader.use();
-    renderObjects(now, mainshader.getProgram(), false);
+    renderObjects(now, false);
 
     requestAnimationFrame(render);
 }
