@@ -89,6 +89,10 @@ class ComputeShader
     getProgram() {
         return this.shader.getProgram();
     }
+
+    use() {
+        this.shader.use();
+    }
 }
 
 class GPUBuffer {

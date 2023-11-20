@@ -360,9 +360,10 @@ let light_culling_comp_fragment_source =
     } lights;
 
     uniform vec3 view_pos;
+    uniform vec2 screen_size;
+    uniform vec2 tile_count;
 
     uniform sampler2D depthimage;
-    uniform vec2 screen_size;
     
     layout(location = 0) out vec4 lightOut0;
     layout(location = 1) out vec4 lightOut1;
@@ -375,58 +376,38 @@ let light_culling_comp_fragment_source =
     
     struct Frustum {
         vec4 planes[6];
-        vec3 points[8];
     };
 
+    Frustum createFrustum(vec2 tile, float minDepth, float maxDepth) {
+		vec2 negativeStep = (2.0 * tile) / tile_count;
+		vec2 positiveStep = (2.0 * (tile + vec2(1.0, 1.0))) / tile_count;
 
-    Frustum createFrustum(ivec2 tile, float minDepth, float maxDepth) {
-        mat4 inverse_view_projection = inverse(mvp.view_projection);
         Frustum frustum;
-        
-        //ndc = normalized device coords
-        vec2 ndc_size = 2.0 * vec2(TILE_SIZE, TILE_SIZE) / screen_size;
-        vec2 ndc_points[4];
-        ndc_points[0] = vec2(-1.0, -1.0) + vec2(tile) * ndc_size;
-        ndc_points[1] = vec2(ndc_points[0].x + ndc_size.x, ndc_points[0].y);
-        ndc_points[2] = ndc_points[0] + ndc_size;
-        ndc_points[3] = vec2(ndc_points[0].x, ndc_size.y + ndc_points[0].y);
-        
-        vec4 temp;
-        for (int i = 0; i < 4; i++)
-        {
-            temp = inverse_view_projection * vec4(ndc_points[i], minDepth, 1.0);
-            frustum.points[i] = temp.xyz / temp.w;
-            temp = inverse_view_projection * vec4(ndc_points[i], maxDepth, 1.0);
-            frustum.points[i + 4] = temp.xyz / temp.w;
-        }
-    
-        vec3 temp_normal;
-        for (int i = 0; i < 4; i++)
-        {
-            temp_normal = cross(frustum.points[i] - view_pos, frustum.points[i + 1] - view_pos);
-            temp_normal = normalize(temp_normal);
-            frustum.planes[i] = vec4(temp_normal, - dot(temp_normal, frustum.points[i]));
-        }
-        // near plane
-        {
-            temp_normal = cross(frustum.points[1] - frustum.points[0], frustum.points[3] - frustum.points[0]);
-            temp_normal = normalize(temp_normal);
-            frustum.planes[4] = vec4(temp_normal, - dot(temp_normal, frustum.points[0]));
-        }
-        // far plane
-        {
-            temp_normal = cross(frustum.points[7] - frustum.points[4], frustum.points[5] - frustum.points[4]);
-            temp_normal = normalize(temp_normal);
-            frustum.planes[5] = vec4(temp_normal, - dot(temp_normal, frustum.points[4]));
-        }
-    
 
+		frustum.planes[0] = vec4(1.0, 0.0, 0.0, 1.0 - negativeStep.x);   //left
+		frustum.planes[1] = vec4(-1.0, 0.0, 0.0, -1.0 + positiveStep.x); //right
+		frustum.planes[2] = vec4(0.0, 1.0, 0.0, 1.0 - negativeStep.y);   //bottom
+		frustum.planes[3] = vec4(0.0, -1.0, 0.0, -1.0 + positiveStep.y); //top
+		frustum.planes[4] = vec4(0.0, 0.0, -1.0, -minDepth);             //near
+		frustum.planes[5] = vec4(0.0, 0.0, 1.0, maxDepth);               //far
+
+		for (int i = 0; i < 4; i++) {
+			frustum.planes[i] *= mvp.view_projection;
+			frustum.planes[i] /= length(frustum.planes[i].xyz);
+		}
+
+		frustum.planes[4] *= mvp.view_projection;
+		frustum.planes[4] /= length(frustum.planes[4].xyz);
+		frustum.planes[5] *= mvp.view_projection;
+		frustum.planes[5] /= length(frustum.planes[5].xyz);
+    
         return frustum;
     }
 
     bool inTile(int lightindex, Frustum frustum) {
+        float light_radius = 5.0;
         for(int i = 0; i < 6; i++) {
-            if(dot(lights.light_positions[lightindex], frustum.planes[i].xyz) + frustum.planes[i].w < -(1.0 / lights.light_colors[lightindex].w)) {
+            if(dot(vec4(lights.light_positions[lightindex], 1.0), frustum.planes[i]) + light_radius < 0.0) {
                 return false;
             }
         }
@@ -439,22 +420,21 @@ let light_culling_comp_fragment_source =
 
     void main() {
         vec2 screenuv = (aPosition + 1.0) / 2.0;
-        vec2 tile = screenuv * float(TILE_SIZE);
+        vec2 tile = screenuv * tile_count;
         
         float maxDepth = 0.0;
         float minDepth = 1.0;
-        
-        ivec2 depthSize = textureSize(depthimage, 0);
 
         for(int x = 0; x < TILE_SIZE; x++) {
             for(int y = 0; y < TILE_SIZE; y++) {
-                float depth = texture(depthimage, (tile + vec2(x, y)) / vec2(depthSize) ).r;
+                float depth = texture(depthimage, (tile * float(TILE_SIZE) + vec2(x, y)) / screen_size ).r;
                 maxDepth = max(maxDepth, depth);
                 minDepth = min(minDepth, depth);
             }
         }
+        if(minDepth > maxDepth) minDepth = maxDepth;
         
-        Frustum frustum = createFrustum(ivec2(tile), minDepth, maxDepth);
+        Frustum frustum = createFrustum(tile, minDepth, maxDepth);
         
         int tilelightdata[MAX_LIGHTS_PER_TILE];
         int lindex = 0;
@@ -466,10 +446,9 @@ let light_culling_comp_fragment_source =
             }
         }
         
+        
         //lightOut0 = packInts(tilelightdata[0], tilelightdata[1]);
-        float depth = texture(depthimage, (tile) / vec2(depthSize) ).r;
-        lightOut0 = vec4(depth, depth, depth, 1.0);
-
+        lightOut0 = vec4(inTile(0, frustum) ? 0.0 : 1.0, inTile(1, frustum) ? 0.0 : 1.0, inTile(2, frustum) ? 0.0 : 1.0, 1.0);
         lightOut1 = packInts(tilelightdata[2], tilelightdata[3]);
         lightOut2 = packInts(tilelightdata[4], tilelightdata[5]);
         lightOut3 = packInts(tilelightdata[6], tilelightdata[7]);
@@ -662,6 +641,9 @@ function render(now) {
     renderObjects(now, true);
 
     gl.bindTexture( gl.TEXTURE_2D, depthFrameBufferInfo.texture);
+    gl.useProgram(light_cull_shader.getProgram());
+    gl.uniform2f( gl.getUniformLocation( light_cull_shader.getProgram(), "tile_count" ), tilecount_x, tilecount_y );
+    gl.uniform2f( gl.getUniformLocation( light_cull_shader.getProgram(), "screen_size" ), canvas.width, canvas.height );
     light_cull_shader.dispatch();
 
 
