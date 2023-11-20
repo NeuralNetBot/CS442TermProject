@@ -359,9 +359,10 @@ let light_culling_comp_fragment_source =
         vec4 light_colors[64]; 
     } lights;
 
+    uniform vec3 view_pos;
+
     uniform sampler2D depthimage;
-    uniform vec2 tile_size;
-    uniform vec2 view_size;
+    uniform vec2 screen_size;
     
     layout(location = 0) out vec4 lightOut0;
     layout(location = 1) out vec4 lightOut1;
@@ -378,18 +379,48 @@ let light_culling_comp_fragment_source =
     };
 
 
-    Frustum createFrustum(ivec2 tile) {
+    Frustum createFrustum(ivec2 tile, float minDepth, float maxDepth) {
         mat4 inverse_view_projection = inverse(mvp.view_projection);
         Frustum frustum;
         
         //ndc = normalized device coords
-        vec2 ndc_size = 2.0 * vec2(TILE_SIZE, TILE_SIZE) / view_size;
+        vec2 ndc_size = 2.0 * vec2(TILE_SIZE, TILE_SIZE) / screen_size;
         vec2 ndc_points[4];
         ndc_points[0] = vec2(-1.0, -1.0) + vec2(tile) * ndc_size;
         ndc_points[1] = vec2(ndc_points[0].x + ndc_size.x, ndc_points[0].y);
         ndc_points[2] = ndc_points[0] + ndc_size;
         ndc_points[3] = vec2(ndc_points[0].x, ndc_size.y + ndc_points[0].y);
         
+        vec4 temp;
+        for (int i = 0; i < 4; i++)
+        {
+            temp = inverse_view_projection * vec4(ndc_points[i], minDepth, 1.0);
+            frustum.points[i] = temp.xyz / temp.w;
+            temp = inverse_view_projection * vec4(ndc_points[i], maxDepth, 1.0);
+            frustum.points[i + 4] = temp.xyz / temp.w;
+        }
+    
+        vec3 temp_normal;
+        for (int i = 0; i < 4; i++)
+        {
+            temp_normal = cross(frustum.points[i] - view_pos, frustum.points[i + 1] - view_pos);
+            temp_normal = normalize(temp_normal);
+            frustum.planes[i] = vec4(temp_normal, - dot(temp_normal, frustum.points[i]));
+        }
+        // near plane
+        {
+            temp_normal = cross(frustum.points[1] - frustum.points[0], frustum.points[3] - frustum.points[0]);
+            temp_normal = normalize(temp_normal);
+            frustum.planes[4] = vec4(temp_normal, - dot(temp_normal, frustum.points[0]));
+        }
+        // far plane
+        {
+            temp_normal = cross(frustum.points[7] - frustum.points[4], frustum.points[5] - frustum.points[4]);
+            temp_normal = normalize(temp_normal);
+            frustum.planes[5] = vec4(temp_normal, - dot(temp_normal, frustum.points[4]));
+        }
+    
+
         return frustum;
     }
 
@@ -407,21 +438,23 @@ let light_culling_comp_fragment_source =
     }
 
     void main() {
-        vec2 tile = (aPosition + 1.0) / 2.0 * tile_size;
-        int tileindex = int(tile.x) * int(tile_size.x) + int(tile.y);
+        vec2 screenuv = (aPosition + 1.0) / 2.0;
+        vec2 tile = screenuv * float(TILE_SIZE);
         
         float maxDepth = 0.0;
         float minDepth = 1.0;
         
+        ivec2 depthSize = textureSize(depthimage, 0);
+
         for(int x = 0; x < TILE_SIZE; x++) {
             for(int y = 0; y < TILE_SIZE; y++) {
-                float depth = texture(depthimage, (tile * float(TILE_SIZE)) + vec2(x, y) ).r;
+                float depth = texture(depthimage, (tile + vec2(x, y)) / vec2(depthSize) ).r;
                 maxDepth = max(maxDepth, depth);
                 minDepth = min(minDepth, depth);
             }
         }
         
-        Frustum frustum = createFrustum(ivec2(tile));
+        Frustum frustum = createFrustum(ivec2(tile), minDepth, maxDepth);
         
         int tilelightdata[MAX_LIGHTS_PER_TILE];
         int lindex = 0;
@@ -433,7 +466,10 @@ let light_culling_comp_fragment_source =
             }
         }
         
-        lightOut0 = packInts(tilelightdata[0], tilelightdata[1]);
+        //lightOut0 = packInts(tilelightdata[0], tilelightdata[1]);
+        float depth = texture(depthimage, (tile) / vec2(depthSize) ).r;
+        lightOut0 = vec4(depth, depth, depth, 1.0);
+
         lightOut1 = packInts(tilelightdata[2], tilelightdata[3]);
         lightOut2 = packInts(tilelightdata[4], tilelightdata[5]);
         lightOut3 = packInts(tilelightdata[6], tilelightdata[7]);
