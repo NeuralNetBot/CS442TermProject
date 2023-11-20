@@ -192,6 +192,7 @@ let water_fragment_source =
     in vec2 v_uv;
     in vec3 v_pos;
 
+    float fresnelPower = 3.0; 
     float mat_ambient = 0.25;
     float mat_diffuse = 1.0;
     float mat_specular = 2.0;
@@ -209,9 +210,17 @@ let water_fragment_source =
         float L = max(dot(v_normal, light_direcion), 0.0);
         vec3 diffuse = mat_diffuse * light_color * L;
 
+        vec3 halfway = normalize(light_direction + camera_position);
+
+        float fresnelFactor = dot(halfway, camera_position);
+        fresnelFactor = max(fresnelFactor, 0.0);
+        fresnelFactor = 1.0 - fresnelFactor;
+        fresnelFactor = pow(fresnelFactor, fresnelPower);
+        alpha = mix(alpha, 1.0, fresnelFactor);
+        
         vec3 reflection = reflect(-light_direcion, v_normal);
         vec3 view_dir = normalize(camera_position - v_pos);
-        float spec = pow(max(dot(view_dir, reflection), 0.0), mat_shininess) * L;
+        float spec = pow(max(dot(view_dir, halfway), 0.0), mat_shininess) * L;
         vec3 specular = light_color * spec * mat_specular;
 
         return diffuse + specular;
