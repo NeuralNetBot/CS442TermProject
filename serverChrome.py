@@ -7,7 +7,7 @@ def main():
     abspath = os.path.abspath(__file__) # moves to location of script so you don't have to run in folder
     dname = os.path.dirname(abspath)
     os.chdir(dname)
-    p = Popen(["python3", "-m", "http.server"]) # start the http server
+    p = Popen(["python", "-m", "http.server"]) # start the http server
     options = webdriver.ChromeOptions()
     options.add_experimental_option("excludeSwitches" , ["enable-automation", "enable-logging"])
     options.add_argument("--guest")
