@@ -527,10 +527,12 @@ Input.init();
 let doneload = false;
 let tex = loadTexture(gl, "metal_scale.png", function() { doneload = true; });
 let cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bottom.jpg', 'front.jpg', 'back.jpg');
-//let water_cube_map_texture= createCubemapFrameBuffer(now);
 gl.enable( gl.BLEND );
 gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
 gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ZERO);
+
+let renderCubeMap = false;
+
 requestAnimationFrame(render);
 
 function handleMouse(deltaX, deltaY) {
@@ -559,6 +561,25 @@ function resizeCanvas() {
     }
 
     gl.viewport(0, 0, canvas.width, canvas.height);
+}
+
+function renderTerrain() {
+    mainshader.use();
+    let model = Mat4.translation(0.0, -1.0, 0.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_xz( 0.0 )));
+    
+    let cameramat = camera.getMatrix();
+    let viewpos = camera.getPosition();
+    gl.uniform3f( gl.getUniformLocation( mainshader.getProgram(), "view_pos" ), viewpos.x, viewpos.y, viewpos.z );
+    
+    MVPBuffer.bind();
+    MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
+    MVPBuffer.setData(cameramat.asColumnMajorFloat32Array(), 4 * 16);
+
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    planemesh.render(gl, mainshader.getProgram());
+    cubemapshader.use();
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube_map_texture);
+    skyboxmesh.render(gl, cubemapshader.getProgram());
 }
 
 function renderObjects(now, depthonly) {
@@ -602,6 +623,11 @@ function renderObjects(now, depthonly) {
 function render(now) {
     if(!doneload) { requestAnimationFrame(render); return; }
     
+    if(!renderCubeMap) {
+        renderCubeMap = true;
+        createCubemapFrameBuffer();
+    }
+
     let time_delta = ( now - last_update ) / 1000;
     last_update = now;
 

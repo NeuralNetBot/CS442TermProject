@@ -94,6 +94,7 @@ function loadTexture(gl, path, callback) {
     image.src = path;
 
     image.onload = function () {
+        gl.bindTexture(gl.TEXTURE_2D, tex);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
         gl.generateMipmap(gl.TEXTURE_2D);
         callback();
@@ -170,34 +171,58 @@ function loadCubeMap(gl, right, left, top, bottom, front, back) {
 function createCubemapFrameBuffer(now) {
     let front = createFramebuffer(gl, 2048, 2048, 1);
     gl.bindFramebuffer(gl.FRAMEBUFFER, front.framebuffer);
-    renderObjects(now, false);
+    gl.viewport(0, 0, 2048, 2048);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    renderTerrain();
+    gl.finish();
     camera.setRPY(0.0, 0.0, 0.25);
 
     let right = createFramebuffer(gl, 2048, 2048, 1);
     gl.bindFramebuffer(gl.FRAMEBUFFER, right.framebuffer);
-    renderObjects(now, false);
+    gl.viewport(0, 0, 2048, 2048);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    renderTerrain();
+    gl.finish();
     camera.setRPY(0.0, 0.25, 0.25);
 
     let back = createFramebuffer(gl, 2048, 2048, 1);
     gl.bindFramebuffer(gl.FRAMEBUFFER, back.framebuffer);
-    renderObjects(now, false);
+    gl.viewport(0, 0, 2048, 2048);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    renderTerrain();
+    gl.finish();
     camera.setRPY(0.0, 0.0, 0.25);
 
     let left = createFramebuffer(gl, 2048, 2048, 1);
     gl.bindFramebuffer(gl.FRAMEBUFFER, left.framebuffer);
-    renderObjects(now, false);
+    gl.viewport(0, 0, 2048, 2048);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    renderTerrain();
+    gl.finish();
     camera.setRPY(0.0, 0.25, 0.25);
 
     let top = createFramebuffer(gl, 2048, 2048, 1);
     gl.bindFramebuffer(gl.FRAMEBUFFER, top.framebuffer);
-    renderObjects(now, false);
+    gl.viewport(0, 0, 2048, 2048);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    renderTerrain();
+    gl.finish();
     camera.setRPY(0.0, 0.5, 0.0);
 
     let bottom = createFramebuffer(gl, 2048, 2048, 1);
     gl.bindFramebuffer(gl.FRAMEBUFFER, bottom.framebuffer);
-    renderObjects(now, false);
+    gl.viewport(0, 0, 2048, 2048);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    renderTerrain();
+    gl.finish();
     camera.setRPY(0.0, -0.25, 0.0);
 
-    return loadCubeMap(gl, right, left, top, bottom, front, back);
+    //return loadCubeMap(gl, right, left, top, bottom, front, back);
 }
 
