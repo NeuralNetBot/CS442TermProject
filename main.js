@@ -4,6 +4,7 @@ let canvas = document.getElementById( 'the-canvas' );
 let gl = canvas.getContext( 'webgl2' );
 
 const ext = gl.getExtension('ANGLE_instanced_arrays') || gl.getExtension('EXT_instanced_arrays');
+const rgbaf16ext =- gl.getExtension('EXT_color_buffer_float');
 
 if (ext) {
     gl.vertexAttribDivisorANGLE = ext.vertexAttribDivisorANGLE || ext.vertexAttribDivisorEXT;
@@ -48,6 +49,9 @@ let fragment_source =
 `   #version 300 es
     precision mediump float;
 
+    const int TILE_SIZE = 16;
+    const int MAX_LIGHTS_PER_TILE = 16;
+
     out vec4 f_color;
     
     in vec3 aPosition;
@@ -58,20 +62,34 @@ let fragment_source =
     uniform Lights {
         highp int num_lights;
         vec3 light_positions[64];
-        vec4 light_colors[64];//w component is the linear component of light        
+        vec4 light_colors[64];//w radius of light
     } lights;
     
     uniform sampler2D tex_0;
+    uniform sampler2D lightData0;
+    uniform sampler2D lightData1;
+    uniform sampler2D lightData2;
+    uniform sampler2D lightData3;
+    uniform sampler2D lightData4;
+    uniform sampler2D lightData5;
+    uniform sampler2D lightData6;
+    uniform sampler2D lightData7;
     
     uniform vec3 sun_direction;
     uniform vec3 sun_color;
 
     uniform vec3 view_pos;
+    uniform vec2 screen_size;
     
     uniform float ambient;
     uniform float mat_diffuse;
     uniform float mat_specular;
     uniform float mat_shininess;
+    
+    void unpackInts(vec4 packedValues, out int a, out int b) {
+        a = int(packedValues.r * float(lights.num_lights));
+        b = int(packedValues.g * float(lights.num_lights));
+    }
 
     vec3 calcLight(vec3 light_direcion, vec3 light_color, vec3 surf_normal)
     {
@@ -88,16 +106,34 @@ let fragment_source =
 
     void main( void )
     {
+        vec2 tile = gl_FragCoord.xy / screen_size;
+        int tilelightdata[MAX_LIGHTS_PER_TILE];
+        unpackInts(texture(lightData0, tile), tilelightdata[0], tilelightdata[1]);
+        unpackInts(texture(lightData1, tile), tilelightdata[2], tilelightdata[3]);
+        unpackInts(texture(lightData2, tile), tilelightdata[4], tilelightdata[5]);
+        unpackInts(texture(lightData3, tile), tilelightdata[6], tilelightdata[7]);
+        unpackInts(texture(lightData4, tile), tilelightdata[8], tilelightdata[9]);
+        unpackInts(texture(lightData5, tile), tilelightdata[10], tilelightdata[11]);
+        unpackInts(texture(lightData6, tile), tilelightdata[12], tilelightdata[13]);
+        unpackInts(texture(lightData7, tile), tilelightdata[14], tilelightdata[15]);
+
         vec3 ambient = ambient * sun_color;
 
         vec3 final = ambient + calcLight(-sun_direction, sun_color, aNormal);
         
-        for(int i = 0; i < lights.num_lights; i++)
+        for(int i = 0; i < MAX_LIGHTS_PER_TILE; i++)
         {
-            float dist = length(lights.light_positions[i] - aPosition);
-            float atten = 1.0 / (lights.light_colors[i].w * dist);
-            vec3 light_dir = normalize(lights.light_positions[i] - aPosition);
-            final += calcLight(light_dir, vec3(lights.light_colors[i]), aNormal) * atten;
+            if(tilelightdata[i] >= lights.num_lights) {
+                break;
+            }
+            int lightindex = tilelightdata[i];
+
+            float dist = length(lights.light_positions[lightindex] - aPosition);
+            if(dist > lights.light_colors[lightindex].w) continue;
+            //a nice fallof as our light reaches its radius
+            float atten = 1.0 - dist * dist / (lights.light_colors[lightindex].w * lights.light_colors[lightindex].w);
+            vec3 light_dir = normalize(lights.light_positions[lightindex] - aPosition);
+            final += calcLight(light_dir, vec3(lights.light_colors[lightindex]), aNormal) * atten;
         }
         f_color = vec4(final, 1.0) * texture(tex_0, aUV);
     }
@@ -405,7 +441,7 @@ let light_culling_comp_fragment_source =
     }
 
     bool inTile(int lightindex, Frustum frustum) {
-        float light_radius = 1.0;
+        float light_radius = lights.light_colors[lightindex].w;
         for(int i = 0; i < 4; i++) {//TODO: 6
             if(dot(vec4(lights.light_positions[lightindex], 1.0), frustum.planes[i]) < -light_radius) {
                 return false;
@@ -415,7 +451,7 @@ let light_culling_comp_fragment_source =
     }
     
     vec4 packInts(int a, int b) {
-        return vec4(float(a & 0xFF) / 255.0, float((a >> 8) & 0xFF) / 255.0, float(b & 0xFF) / 255.0, float((b >> 8) & 0xFF) / 255.0);
+        return vec4(float(a) / float(lights.num_lights), float(b) / float(lights.num_lights), 0.0, 1.0);
     }
 
     void main() {
@@ -445,6 +481,10 @@ let light_culling_comp_fragment_source =
                 lindex++;
             }
         }
+        //give us a stopping point if needed
+        if(lindex < MAX_LIGHTS_PER_TILE) {
+            tilelightdata[lindex+1] = lights.num_lights+100;
+        }
         
         lightOut0 = packInts(tilelightdata[0], tilelightdata[1]);
         lightOut1 = packInts(tilelightdata[2], tilelightdata[3]);
@@ -453,7 +493,7 @@ let light_culling_comp_fragment_source =
         lightOut4 = packInts(tilelightdata[8], tilelightdata[9]);
         lightOut5 = packInts(tilelightdata[10], tilelightdata[11]);
         lightOut6 = packInts(tilelightdata[12], tilelightdata[13]);
-        lightOut7 = vec4(float(lindex), float(lindex), float(lindex), 1.0);//packInts(tilelightdata[14], tilelightdata[15]);
+        lightOut7 = packInts(tilelightdata[14], tilelightdata[15]);
     }
 `;
 
@@ -466,6 +506,7 @@ let watershader = Shader.createShader(gl, water_vertex_source, water_fragment_so
 let tilecount_x = Math.ceil(canvas.width / 16);
 let tilecount_y = Math.ceil(canvas.height / 16);
 light_cull_shader = new ComputeShader(gl, Shader.createShader(gl, light_culling_comp_vertex_source, light_culling_comp_fragment_source), tilecount_x, tilecount_y, 8);
+setupMainTextureUnits();
 
 gl.clearColor( 0.0, 0.0, 0.0, 1 );
 gl.enable( gl.DEPTH_TEST );
@@ -503,10 +544,10 @@ const lightPositions = new Float32Array(
     ]);
 const lightColors = new Float32Array(
     [
-        1.0, 0.0, 0.0, 0.5,
-        0.0, 1.0, 0.0, 0.5,
-        0.0, 0.0, 1.0, 0.5,
-        1.0, 1.0, 0.0, 0.5
+        1.0, 0.0, 0.0, 3.5,
+        0.0, 1.0, 0.0, 3.5,
+        0.0, 0.0, 1.0, 3.5,
+        1.0, 1.0, 0.0, 3.5
     ]);
     
 let MVPBuffer = new GPUBuffer(gl, gl.UNIFORM_BUFFER, 4 * 16 * 2, 0);
@@ -598,9 +639,30 @@ function renderObjects(now, depthonly) {
         MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
         gl.uniform1f(gl.getUniformLocation(watershader.getProgram(), "time"), now / 1000);
         gl.uniform3f( gl.getUniformLocation( watershader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
-        planemesh.render(gl, watershader.getProgram());
+        //planemesh.render(gl, watershader.getProgram());
     }
     
+}
+
+function setupMainTextureUnits() {
+    mainshader.use();
+    gl.uniform1i(gl.getUniformLocation(mainshader.getProgram(), 'tex_0'), 0);
+    for(let i = 0; i < light_cull_shader.getRenderTextures().length; i++) {
+        gl.uniform1i(gl.getUniformLocation(mainshader.getProgram(), 'lightData' + i), i+1);
+    }
+}
+
+function bindUnbindLightDataTextures(bind) {
+    let textures = light_cull_shader.getRenderTextures();
+    for(let i = 0; i < textures.length; i++) {
+        gl.activeTexture(gl.TEXTURE1 + i);
+        if(bind) {
+            gl.bindTexture(gl.TEXTURE_2D, textures[i]);
+        } else {
+            gl.bindTexture(gl.TEXTURE_2D, null);
+        }
+    }
+    gl.activeTexture(gl.TEXTURE0);
 }
 
 function render(now) {
@@ -644,7 +706,10 @@ function render(now) {
     gl.uniform2f( gl.getUniformLocation( light_cull_shader.getProgram(), "screen_size" ), canvas.width, canvas.height );
     let viewpos = camera.getPosition();
     gl.uniform3f( gl.getUniformLocation( light_cull_shader.getProgram(), "view_pos" ), viewpos.x, viewpos.y, viewpos.z );
+
+    bindUnbindLightDataTextures(false);
     light_cull_shader.dispatch();
+    bindUnbindLightDataTextures(true);
 
 
     //main pass
@@ -655,6 +720,7 @@ function render(now) {
     
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     mainshader.use();
+    gl.uniform2f( gl.getUniformLocation( mainshader.getProgram(), "screen_size" ), canvas.width, canvas.height );
     renderObjects(now, false);
 
     requestAnimationFrame(render);
