@@ -4,7 +4,7 @@ let canvas = document.getElementById( 'the-canvas' );
 let gl = canvas.getContext( 'webgl2' );
 
 const ext = gl.getExtension('ANGLE_instanced_arrays') || gl.getExtension('EXT_instanced_arrays');
-const rgbaf16ext =- gl.getExtension('EXT_color_buffer_float');
+const rgbaf16ext = gl.getExtension('EXT_color_buffer_float');
 
 if (ext) {
     gl.vertexAttribDivisorANGLE = ext.vertexAttribDivisorANGLE || ext.vertexAttribDivisorEXT;

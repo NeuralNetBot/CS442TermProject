@@ -429,6 +429,47 @@ class Mesh {
         return new Mesh( gl, verts, indis );    
     }
 
+    static calculateTangent(surfaceNormal, uVec, vVec) {
+        const tangent = uVec.slice();
+        const cross = [
+            uVec[1] * vVec[2] - uVec[2] * vVec[1],
+            uVec[2] * vVec[0] - uVec[0] * vVec[2],
+            uVec[0] * vVec[1] - uVec[1] * vVec[0]
+        ];
+    
+        const dot = cross[0] * surfaceNormal[0] + cross[1] * surfaceNormal[1] + cross[2] * surfaceNormal[2];
+        if (dot < 0.0) {
+            cross.forEach((component, index) => {
+                tangent[index] = -component;
+            });
+        }
+    
+        return tangent;
+    }
+
+    static calculateTangents(normals, uvs) {
+        const tangents = [];
+    
+        for (let i = 0; i < normals.length; i += 9) {
+            const normal1 = normals.slice(i, i + 3);
+            const normal2 = normals.slice(i + 3, i + 6);
+            const normal3 = normals.slice(i + 6, i + 9);
+    
+            const uv1 = uvs.slice(i, i + 2);
+            const uv2 = uvs.slice(i + 2, i + 4);
+            const uv3 = uvs.slice(i + 4, i + 6);
+    
+            const edge1 = [uv2[0] - uv1[0], uv2[1] - uv1[1], 0];
+            const edge2 = [uv3[0] - uv1[0], uv3[1] - uv1[1], 0];
+    
+            const tangent = calculateTangent(normal1, edge1, edge2);
+    
+            tangents.push(...tangent, ...tangent, ...tangent);
+        }
+    
+        return tangents;
+    }
+
     /**
      * Render the mesh. Does NOT preserve array/index buffer or program bindings! 
      * 
