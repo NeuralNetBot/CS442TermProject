@@ -246,6 +246,13 @@ function createCubemapFrameBuffer(cubeMapID) {
     renderTerrain();
     gl.finish();
 
+    gl.deleteFramebuffer(back.framebuffer);
+    gl.deleteFramebuffer(front.framebuffer);
+    gl.deleteFramebuffer(left.framebuffer);
+    gl.deleteFramebuffer(right.framebuffer);
+    gl.deleteFramebuffer(top.framebuffer);
+    gl.deleteFramebuffer(bottom.framebuffer);
+
     //return loadCubeMap(gl, right, left, top, bottom, front, back);
 }
 
