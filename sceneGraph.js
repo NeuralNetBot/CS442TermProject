@@ -1,7 +1,8 @@
 class Node {
-    constructor(parent, matrix, children = []) {
+    constructor(parent, offsetMatrix, children = []) {
         this.parent = parent;
-        this.matrix = matrix;
+        this.matrix = Mat4.translation(0, 0, 0);
+        this.offsetMatrix = offsetMatrix;
         this.children = children;
     }
 
@@ -21,7 +22,6 @@ class Node {
     setParent(node) {
         this.parent = node;
     }
-
 }
 
 class SceneGraph {
@@ -42,11 +42,11 @@ class SceneGraph {
 
         // ROOT
         if (node.parent === null) {
-            mat = node.matrix;
+            mat = node.offsetMatrix;
         }
 
         else {
-            mat = node.parent.matrix.mul(node.matrix);
+            mat = node.parent.matrix.mul(node.offsetMatrix);
         }
 
         this.children.forEach(function(child) {
