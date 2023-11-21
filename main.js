@@ -477,7 +477,7 @@ let skyboxmesh = Mesh.box(gl);
 
 let perspective = Mat4.perspective(Math.PI / 2, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000);
 camera = new Camera(new Vec4(0, 0, 2, 0), 0, 0, 0, perspective);
-let cube_map_perspective = Mat4.perspective(90, 1, 0.1, 1000);
+let cube_map_perspective = Mat4.perspective(Math.PI / 2, 1, 0.1, 1000);
 cube_map_camera = new Camera(new Vec4(0, 0, 0, 0), 0, 0, 0, cube_map_perspective);
 
 
@@ -529,8 +529,10 @@ Input.setMouseHandler(handleMouse);
 Input.init();
 
 let doneload = false;
+let cubemaploaded = [false, false, false, false, false, false];
 let tex = loadTexture(gl, "metal_scale.png", function() { doneload = true; });
-let cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bottom.jpg', 'front.jpg', 'back.jpg');
+let cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bottom.jpg', 'front.jpg', 'back.jpg', function() { });
+let new_cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bottom.jpg', 'front.jpg', 'back.jpg', function(index) { cubemaploaded[index] = true; console.log(index); });
 gl.enable( gl.BLEND );
 gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
 gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ZERO);
@@ -569,8 +571,8 @@ function resizeCanvas() {
 
 function renderTerrain() {
     mainshader.use();
-    let model = Mat4.translation(0.0, -1.0, 0.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_xy( 0.0 )));
-    //let model = Mat4.translation(0.0, 4.0, -30.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_yz( -0.25 )));
+    //let model = Mat4.translation(0.0, -1.0, 0.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_xy( 0.0 )));
+    let model = Mat4.translation(0.0, 4.0, -30.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_yz( -0.25 )));
 
 
     //let cameramat = camera.getMatrix();
@@ -586,10 +588,6 @@ function renderTerrain() {
 
     gl.bindTexture(gl.TEXTURE_2D, tex);
     planemesh.render(gl, mainshader.getProgram());
-
-    cubemapshader.use();
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube_map_texture);
-    skyboxmesh.render(gl, cubemapshader.getProgram());
 }
 
 function renderObjects(now, depthonly) {
@@ -631,11 +629,12 @@ function renderObjects(now, depthonly) {
 }
 
 function render(now) {
-    if(!doneload) { requestAnimationFrame(render); return; }
+    if(!doneload || !cubemaploaded.every(e => e === true)) { requestAnimationFrame(render); return; }
     
     if(!renderCubeMap) {
         renderCubeMap = true;
-        createCubemapFrameBuffer();
+        createCubemapFrameBuffer(new_cube_map_texture);
+        cube_map_texture = new_cube_map_texture;
     }
 
     let time_delta = ( now - last_update ) / 1000;
