@@ -192,7 +192,7 @@ let water_fragment_source =
     in vec2 v_uv;
     in vec3 v_pos;
 
-    float fresnelPower = 3.0; 
+    float fresnelPower = 10.0; 
     float mat_ambient = 0.25;
     float mat_diffuse = 1.0;
     float mat_specular = 2.0;
