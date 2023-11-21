@@ -543,6 +543,59 @@ let grass_comp_fragment_source =
     }
 `;
 
+let grass_draw_vertex_source =
+`   #version 300 es
+    precision mediump float;
+
+    in vec3 position;
+    in vec3 normal;
+    in vec2 uv;
+
+    uniform MVP {
+        mat4 model;
+        mat4 view_projection;
+    } mvp;
+
+    uniform sampler2D grassPosXY;
+    uniform sampler2D grassPosZW;
+    uniform sampler2D grassRot;
+    
+    out vec3 aNormal;
+    out vec2 aUV;
+    flat out int instanceID;
+    
+    void main( void )
+    {
+        aNormal = normal;
+        aUV = uv;
+        instanceID = int(gl_InstanceID);
+        gl_Position = (mvp.view_projection) * vec4( (position / 5.0) + lights.light_positions[int(gl_InstanceID)], 1.0 );
+    }
+`;
+
+let grass_draw_fragment_source = 
+`   #version 300 es
+    precision mediump float;
+
+    //point lights
+    uniform Lights {
+        highp int num_lights;
+        vec3 light_positions[64];
+        vec4 light_colors[64]; 
+    } lights;
+
+    out vec4 f_color;
+    
+    in vec3 aNormal;
+    in vec2 aUV;
+    flat in int instanceID;
+
+    void main( void )
+    {
+        f_color = vec4(lights.light_colors[instanceID].xyz, 1.0);
+    }
+`;
+
 let mainshader = Shader.createShader(gl, vertex_source, fragment_source);
 let lightshader = Shader.createShader(gl, light_draw_vertex_source, light_draw_fragment_source);
 let depthshader = Shader.createShader(gl, depth_vertex_source, depth_fragment_source);
