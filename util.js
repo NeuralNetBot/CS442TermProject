@@ -166,3 +166,38 @@ function loadCubeMap(gl, right, left, top, bottom, front, back) {
 
     return cube_map_texture;
 }
+
+function createCubemapFrameBuffer(now) {
+    let front = createFramebuffer(gl, 2048, 2048, 1);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, front.framebuffer);
+    renderObjects(now, false);
+    camera.setRPY(0.0, 0.0, 0.25);
+
+    let right = createFramebuffer(gl, 2048, 2048, 1);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, right.framebuffer);
+    renderObjects(now, false);
+    camera.setRPY(0.0, 0.25, 0.25);
+
+    let back = createFramebuffer(gl, 2048, 2048, 1);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, back.framebuffer);
+    renderObjects(now, false);
+    camera.setRPY(0.0, 0.0, 0.25);
+
+    let left = createFramebuffer(gl, 2048, 2048, 1);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, left.framebuffer);
+    renderObjects(now, false);
+    camera.setRPY(0.0, 0.25, 0.25);
+
+    let top = createFramebuffer(gl, 2048, 2048, 1);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, top.framebuffer);
+    renderObjects(now, false);
+    camera.setRPY(0.0, 0.5, 0.0);
+
+    let bottom = createFramebuffer(gl, 2048, 2048, 1);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, bottom.framebuffer);
+    renderObjects(now, false);
+    camera.setRPY(0.0, -0.25, 0.0);
+
+    return loadCubeMap(gl, right, left, top, bottom, front, back);
+}
+
