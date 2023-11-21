@@ -173,11 +173,13 @@ let water_vertex_source =
         vec3 wave_pos = vec3(position.x, amplitude * cos(displacement) + position.y, position.z);
 
         // based off of partial derivative of wave
-        v_normal = normalize(normalize(vec3(1.0, amplitude * -sin(displacement), 0.0 * normal.y)) * mat3(mvp.model));
+        //v_normal = normalize(normalize(vec3(1.0, amplitude * -sin(displacement), 0.0 * normal.y)) * mat3(mvp.model));
+        v_normal = normal;
 
-
-        gl_Position = mvp.view_projection * mvp.model * vec4( wave_pos, 1.0 );
-        v_pos = vec3(mvp.model * vec4(wave_pos, 1.0));
+        //gl_Position = mvp.view_projection * mvp.model * vec4( wave_pos, 1.0 );
+        //v_pos = vec3(mvp.model * vec4(wave_pos, 1.0));
+        gl_Position = mvp.view_projection * mvp.model * vec4(position, 1.0);
+        v_pos = vec3(mvp.model * vec4(position, 1.0));
         v_uv = uv;
        
     } `;
@@ -475,6 +477,8 @@ let skyboxmesh = Mesh.box(gl);
 
 let perspective = Mat4.perspective(Math.PI / 2, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000);
 camera = new Camera(new Vec4(0, 0, 2, 0), 0, 0, 0, perspective);
+let cube_map_perspective = Mat4.perspective(90, 1, 0.1, 1000);
+cube_map_camera = new Camera(new Vec4(0, 0, 0, 0), 0, 0, 0, cube_map_perspective);
 
 
 let sundir = new Vec4(-1.0, -1.0, -1.0, 0.0);
@@ -565,10 +569,15 @@ function resizeCanvas() {
 
 function renderTerrain() {
     mainshader.use();
-    let model = Mat4.translation(0.0, -1.0, 0.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_xz( 0.0 )));
-    
-    let cameramat = camera.getMatrix();
-    let viewpos = camera.getPosition();
+    let model = Mat4.translation(0.0, -1.0, 0.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_xy( 0.0 )));
+    //let model = Mat4.translation(0.0, 4.0, -30.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_yz( -0.25 )));
+
+
+    //let cameramat = camera.getMatrix();
+    //let viewpos = camera.getPosition();
+    let cameramat = cube_map_camera.getMatrix();
+    let viewpos = cube_map_camera.getPosition();
+
     gl.uniform3f( gl.getUniformLocation( mainshader.getProgram(), "view_pos" ), viewpos.x, viewpos.y, viewpos.z );
     
     MVPBuffer.bind();
@@ -577,6 +586,7 @@ function renderTerrain() {
 
     gl.bindTexture(gl.TEXTURE_2D, tex);
     planemesh.render(gl, mainshader.getProgram());
+
     cubemapshader.use();
     gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube_map_texture);
     skyboxmesh.render(gl, cubemapshader.getProgram());
@@ -588,7 +598,7 @@ function renderObjects(now, depthonly) {
         currentshader = depthshader.getProgram();
     }
 
-    let model = Mat4.translation(0.0, -1.0, 0.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_xz( 0.0 )));
+    let model = Mat4.translation(0.0, 4.0, -30.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_yz( -0.25 )));
     
     let cameramat = camera.getMatrix();
     let viewpos = camera.getPosition();

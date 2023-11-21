@@ -169,14 +169,14 @@ function loadCubeMap(gl, right, left, top, bottom, front, back) {
 }
 
 function createCubemapFrameBuffer(now) {
-    let front = createFramebuffer(gl, 2048, 2048, 1);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, front.framebuffer);
+    let back = createFramebuffer(gl, 2048, 2048, 1);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, back.framebuffer);
     gl.viewport(0, 0, 2048, 2048);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.bindTexture(gl.TEXTURE_2D, null);
     renderTerrain();
     gl.finish();
-    camera.setRPY(0.0, 0.0, 0.25);
+    cube_map_camera.setRPY(0.0, 0.0, 0.25);
 
     let right = createFramebuffer(gl, 2048, 2048, 1);
     gl.bindFramebuffer(gl.FRAMEBUFFER, right.framebuffer);
@@ -185,16 +185,16 @@ function createCubemapFrameBuffer(now) {
     gl.bindTexture(gl.TEXTURE_2D, null);
     renderTerrain();
     gl.finish();
-    camera.setRPY(0.0, 0.25, 0.25);
+    cube_map_camera.setRPY(0.0, 0.0, 0.25);
 
-    let back = createFramebuffer(gl, 2048, 2048, 1);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, back.framebuffer);
+    let front = createFramebuffer(gl, 2048, 2048, 1);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, front.framebuffer);
     gl.viewport(0, 0, 2048, 2048);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.bindTexture(gl.TEXTURE_2D, null);
     renderTerrain();
     gl.finish();
-    camera.setRPY(0.0, 0.0, 0.25);
+    cube_map_camera.setRPY(0.0, 0.0, 0.25);
 
     let left = createFramebuffer(gl, 2048, 2048, 1);
     gl.bindFramebuffer(gl.FRAMEBUFFER, left.framebuffer);
@@ -203,7 +203,7 @@ function createCubemapFrameBuffer(now) {
     gl.bindTexture(gl.TEXTURE_2D, null);
     renderTerrain();
     gl.finish();
-    camera.setRPY(0.0, 0.25, 0.25);
+    cube_map_camera.setRPY(0.0, 0.25, 0.25);
 
     let top = createFramebuffer(gl, 2048, 2048, 1);
     gl.bindFramebuffer(gl.FRAMEBUFFER, top.framebuffer);
@@ -212,7 +212,7 @@ function createCubemapFrameBuffer(now) {
     gl.bindTexture(gl.TEXTURE_2D, null);
     renderTerrain();
     gl.finish();
-    camera.setRPY(0.0, 0.5, 0.0);
+    cube_map_camera.setRPY(0.0, 0.5, 0.0);
 
     let bottom = createFramebuffer(gl, 2048, 2048, 1);
     gl.bindFramebuffer(gl.FRAMEBUFFER, bottom.framebuffer);
@@ -221,7 +221,7 @@ function createCubemapFrameBuffer(now) {
     gl.bindTexture(gl.TEXTURE_2D, null);
     renderTerrain();
     gl.finish();
-    camera.setRPY(0.0, -0.25, 0.0);
+    cube_map_camera.setRPY(0.0, -0.25, 0.0);
 
     //return loadCubeMap(gl, right, left, top, bottom, front, back);
 }
