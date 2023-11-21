@@ -173,13 +173,11 @@ let water_vertex_source =
         vec3 wave_pos = vec3(position.x, amplitude * cos(displacement) + position.y, position.z);
 
         // based off of partial derivative of wave
-        //v_normal = normalize(normalize(vec3(1.0, amplitude * -sin(displacement), 0.0 * normal.y)) * mat3(mvp.model));
-        v_normal = normal;
+        v_normal = normalize(normalize(vec3(1.0, amplitude * -sin(displacement), 0.0 * normal.y)) * mat3(mvp.model));
 
-        //gl_Position = mvp.view_projection * mvp.model * vec4( wave_pos, 1.0 );
-        //v_pos = vec3(mvp.model * vec4(wave_pos, 1.0));
-        gl_Position = mvp.view_projection * mvp.model * vec4(position, 1.0);
-        v_pos = vec3(mvp.model * vec4(position, 1.0));
+        gl_Position = mvp.view_projection * mvp.model * vec4( wave_pos, 1.0 );
+        v_pos = vec3(mvp.model * vec4(wave_pos, 1.0));
+
         v_uv = uv;
        
     } `;
@@ -623,6 +621,7 @@ function renderObjects(now, depthonly) {
         MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
         gl.uniform1f(gl.getUniformLocation(watershader.getProgram(), "time"), now / 1000);
         gl.uniform3f( gl.getUniformLocation( watershader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, new_cube_map_texture);
         planemesh.render(gl, watershader.getProgram());
 
     }
@@ -634,7 +633,6 @@ function render(now) {
     if(!renderCubeMap) {
         renderCubeMap = true;
         createCubemapFrameBuffer(new_cube_map_texture);
-        cube_map_texture = new_cube_map_texture;
     }
 
     let time_delta = ( now - last_update ) / 1000;
