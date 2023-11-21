@@ -497,6 +497,52 @@ let light_culling_comp_fragment_source =
     }
 `;
 
+let grass_comp_vertex_source = 
+`   #version 300 es
+    precision mediump float;
+    
+    in vec3 position;
+    out vec2 aPosition;
+
+    void main() {
+        aPosition = position.xy;
+        gl_Position = vec4(position, 1.0);
+    }
+`;
+
+let grass_comp_fragment_source = 
+`   #version 300 es
+    precision mediump float;
+
+    in vec2 aPosition;
+
+    layout(location = 0) out vec4 grassPosXY;
+    layout(location = 1) out vec4 grassPosZW;
+    layout(location = 2) out vec4 grassRot;
+
+    uniform vec2 grassSize;
+    uniform float seed;
+    
+    float random(vec2 st) {
+        return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+    }
+
+    void main() {
+        vec2 tile = gl_FragCoord.xy;
+
+        vec2 grassPos = tile += random(tile + vec2(seed));
+        grassPos /= grassSize;//packing from 0-1
+        
+        float grassPosZ = 0.0;//TODO: make this load from our height map
+
+        vec2 grassRotation = normalize(random(tile + vec2(seed + 100.0)));
+        
+        grassPosXY = vec4(grassPos.x, grassPos.y, 0.0, 1.0);
+        grassPosZW = vec4(grassPosZ, 0.0, 0.0, 1.0);
+        grassRot = vec4(grassPos.x, grassPos.y, 0.0, 1.0);
+    }
+`;
+
 let mainshader = Shader.createShader(gl, vertex_source, fragment_source);
 let lightshader = Shader.createShader(gl, light_draw_vertex_source, light_draw_fragment_source);
 let depthshader = Shader.createShader(gl, depth_vertex_source, depth_fragment_source);
