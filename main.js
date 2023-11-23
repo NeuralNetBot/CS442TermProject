@@ -164,7 +164,7 @@ let water_vertex_source =
     out vec3 v_pos;
 
     float frequency = 10.0;
-    float amplitude = 0.05;
+    float amplitude = 0.00;
     float speed = 3.0;
 
     void main( void ) {
@@ -472,6 +472,7 @@ let planemesh = null;
 Mesh.from_obj_file( gl, "plane.obj", mesh_loaded );//Mesh.plane(gl);
 let sphere = Mesh.sphere( gl, 8 );
 let skyboxmesh = Mesh.box(gl);
+let box = Mesh.box(gl);
 
 let perspective = Mat4.perspective(Math.PI / 2, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000);
 camera = new Camera(new Vec4(0, 0, 2, 0), 0, 0, 0, perspective);
@@ -536,6 +537,11 @@ gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
 gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ZERO);
 
 let renderCubeMap = false;
+let sceneGraph = new SceneGraph();
+let node3 = new Node(null, Mat4.translation(0.0, 0.0, -5.0));
+let node2 = new Node(null, Mat4.translation(0.0, 0.0, -5.0), [node3]);
+let node1 = new Node(sceneGraph.getRoot(), Mat4.translation(0, 0, 0), [node2]);
+sceneGraph.update();
 
 requestAnimationFrame(render);
 
@@ -594,8 +600,11 @@ function renderObjects(now, depthonly) {
         currentshader = depthshader.getProgram();
     }
 
-    let model = Mat4.translation(0.0, 4.0, -30.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_yz( -0.25 )));
-    
+
+
+    //let model = Mat4.translation(0.0, 4.0, -30.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_yz( -0.25 )));
+    let model = Mat4.translation(0.0, 0.0, -10.0).mul(Mat4.scale(1, 1, 1));
+
     let cameramat = camera.getMatrix();
     let viewpos = camera.getPosition();
     gl.uniform3f( gl.getUniformLocation( currentshader, "view_pos" ), viewpos.x, viewpos.y, viewpos.z );
@@ -603,7 +612,7 @@ function renderObjects(now, depthonly) {
     MVPBuffer.bind();
     MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
     MVPBuffer.setData(cameramat.asColumnMajorFloat32Array(), 4 * 16);
-    
+
     if (planemesh) {
         planemesh.render(gl, currentshader);
     }
@@ -612,6 +621,17 @@ function renderObjects(now, depthonly) {
         cubemapshader.use();
         gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube_map_texture);
         skyboxmesh.render(gl, cubemapshader.getProgram());
+
+        mainshader.use();
+        MVPBuffer.setData(node1.matrix.asColumnMajorFloat32Array(), 0);
+        sphere.render(gl, mainshader.getProgram());
+
+        MVPBuffer.setData(node2.matrix.asColumnMajorFloat32Array(), 0);
+        sphere.render(gl, mainshader.getProgram());
+
+        MVPBuffer.setData(node3.matrix.asColumnMajorFloat32Array(), 0);
+        sphere.render(gl, mainshader.getProgram());
+
 
         lightshader.use();
         sphere.render(gl, lightshader.getProgram(), numLights);
@@ -656,7 +676,10 @@ function render(now) {
     
     if (Input.getKeyState('t')) { Input.lockMouse(); }
     if (Input.getKeyState('y')) { Input.unlockMouse(); }
-    
+
+    //update scene graph
+    //sceneGraph.update();
+
     //depth pass
     gl.bindTexture( gl.TEXTURE_2D, null );
 

@@ -1,9 +1,32 @@
 class Node {
     constructor(parent, offsetMatrix, children = []) {
         this.parent = parent;
+        if (this.parent) {
+            this.parent.addChild(this);
+        }
         this.matrix = Mat4.translation(0, 0, 0);
         this.offsetMatrix = offsetMatrix;
         this.children = children;
+
+        this.children.forEach(child => {
+            child.setParent(this);
+        });
+    }
+
+    update() {
+
+        console.log("update");
+        if (this.parent) {
+            this.matrix = this.parent.matrix.mul(this.offsetMatrix);
+        }
+
+        else {
+            this.matrix = this.offsetMatrix;
+        }
+
+        this.children.forEach(child => {
+            child.update();
+        });
     }
 
     addChild(node) {
@@ -34,23 +57,7 @@ class SceneGraph {
     }
 
     update() {
-        updateNode(this.root);
+        this.root.update();
     }
 
-    updateNode(node) {
-        let mat = null;
-
-        // ROOT
-        if (node.parent === null) {
-            mat = node.offsetMatrix;
-        }
-
-        else {
-            mat = node.parent.matrix.mul(node.offsetMatrix);
-        }
-
-        this.children.forEach(function(child) {
-            child.updateMatrix(child, mat);
-        });
-    }
 }
