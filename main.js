@@ -527,15 +527,21 @@ let grass_comp_fragment_source =
         return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
     }
 
+    vec2 randomVec2(vec2 inputVec2, float seed) {
+        float randX = random(inputVec2 + seed);
+        float randY = random(inputVec2 - seed);
+        return vec2(randX, randY);
+    }
+
     void main() {
         vec2 tile = gl_FragCoord.xy;
 
-        vec2 grassPos = tile += random(tile + vec2(seed));
+        vec2 grassPos = tile + randomVec2(tile, seed * 10.0);
         grassPos /= grassSize;//packing from 0-1
         
         float grassPosZ = 0.0;//TODO: make this load from our height map
 
-        vec2 grassRotation = normalize(random(tile + vec2(seed + 100.0)));
+        vec2 grassRotation = randomVec2(tile, seed);
         
         grassPosXY = vec4(grassPos.x, grassPos.y, 0.0, 1.0);
         grassPosZW = vec4(grassPosZ, 0.0, 0.0, 1.0);
@@ -560,16 +566,30 @@ let grass_draw_vertex_source =
     uniform sampler2D grassPosZW;
     uniform sampler2D grassRot;
     
+    uniform vec2 grassSize;
+
+    out vec3 aPosition;
     out vec3 aNormal;
     out vec2 aUV;
     flat out int instanceID;
     
     void main( void )
     {
+        instanceID = int(gl_InstanceID);
+        vec2 grassIndex = vec2(instanceID % int(grassSize.x), instanceID / int(grassSize.x));
+        vec4 grassPos = vec4(texture(grassPosXY, grassIndex / grassSize).xy + grassIndex, texture(grassPosXY, grassIndex / grassSize).xy + grassIndex);
+        vec2 grassRotation = texture(grassRot, grassIndex / grassSize).xy;
+
+        float angle = atan(grassRotation.y, grassRotation.x);
+        float s = sin(-angle);
+        float c = cos(-angle);
+        vec3 newpos = vec3(position.x * c - position.z * s, position.y, position.x * s + position.z * c);
+
+        aPosition = position;
         aNormal = normal;
         aUV = uv;
-        instanceID = int(gl_InstanceID);
-        gl_Position = (mvp.view_projection) * vec4( (position / 5.0) + lights.light_positions[int(gl_InstanceID)], 1.0 );
+        //gl_Position = (mvp.view_projection) * vec4( newpos + grassPos.xyz, 1.0 );
+        gl_Position = (mvp.view_projection) * vec4( position + vec3(grassIndex.x, 0.0, grassIndex.y), 1.0 );
     }
 `;
 
@@ -586,13 +606,14 @@ let grass_draw_fragment_source =
 
     out vec4 f_color;
     
+    in vec3 aPosition;
     in vec3 aNormal;
     in vec2 aUV;
     flat in int instanceID;
 
     void main( void )
     {
-        f_color = vec4(lights.light_colors[instanceID].xyz, 1.0);
+        f_color = vec4(mix(vec3(0.0, 0.0, 0.0), vec3(119.0/255.0, 156.0/255.0, 75.0/255.0), aPosition.y / 10.0), 1.0);
     }
 `;
 
@@ -601,11 +622,22 @@ let lightshader = Shader.createShader(gl, light_draw_vertex_source, light_draw_f
 let depthshader = Shader.createShader(gl, depth_vertex_source, depth_fragment_source);
 let cubemapshader = Shader.createShader(gl, cube_map_vertex_source, cube_map_fragment_source);
 let watershader = Shader.createShader(gl, water_vertex_source, water_fragment_source);
+let grassshader = Shader.createShader(gl, grass_draw_vertex_source, grass_draw_fragment_source);
 
 let tilecount_x = Math.ceil(canvas.width / 16);
 let tilecount_y = Math.ceil(canvas.height / 16);
 light_cull_shader = new ComputeShader(gl, Shader.createShader(gl, light_culling_comp_vertex_source, light_culling_comp_fragment_source), tilecount_x, tilecount_y, 8);
 setupMainTextureUnits();
+
+let grassSizeX = 100;
+let grassSizeY = 100;
+
+grass_comp_shader = new ComputeShader(gl, Shader.createShader(gl, grass_comp_vertex_source, grass_comp_fragment_source), grassSizeX, grassSizeY, 3);
+grass_comp_shader.use();
+gl.uniform1f( gl.getUniformLocation( grass_comp_shader.getProgram(), "seed" ), 1.0 );
+gl.uniform2f( gl.getUniformLocation( grass_comp_shader.getProgram(), "grassSize" ), grassSizeX, grassSizeY );
+grassshader.use();
+gl.uniform2f( gl.getUniformLocation( grassshader.getProgram(), "grassSize" ), grassSizeX, grassSizeY );
 
 gl.clearColor( 0.0, 0.0, 0.0, 1 );
 gl.enable( gl.DEPTH_TEST );
@@ -613,7 +645,9 @@ gl.enable( gl.DEPTH_TEST );
 let last_update = performance.now();
 
 let planemesh = null;
-Mesh.from_obj_file( gl, "plane.obj", mesh_loaded );//Mesh.plane(gl);
+Mesh.from_obj_file( gl, "plane.obj", function(mesh) { planemesh = mesh; } );
+let grassmesh = null;
+Mesh.from_obj_file( gl, "grass/grass.obj", function(mesh) { grassmesh = mesh; } );
 let sphere = Mesh.sphere( gl, 8 );
 let skyboxmesh = Mesh.box(gl);
 
@@ -653,7 +687,8 @@ let MVPBuffer = new GPUBuffer(gl, gl.UNIFORM_BUFFER, 4 * 16 * 2, 0);
 MVPBuffer.bindToShader(mainshader, "MVP");
 MVPBuffer.bindToShader(lightshader, "MVP");
 MVPBuffer.bindToShader(depthshader, "MVP");  
-MVPBuffer.bindToShader(light_cull_shader, "MVP");    
+MVPBuffer.bindToShader(light_cull_shader, "MVP");
+MVPBuffer.bindToShader(grassshader, "MVP");
     
 const numLightsBytes = 4 * 4;           //glsl pads to vec4s
 const lightPositionsBytes = 64 * 4 * 4; //glsl pads to vec4s
@@ -665,6 +700,7 @@ lightsBuffer.setData(lightColors, numLightsBytes + lightPositionsBytes);
 lightsBuffer.bindToShader(mainshader, "Lights");
 lightsBuffer.bindToShader(lightshader, "Lights");
 lightsBuffer.bindToShader(light_cull_shader, "Lights");
+lightsBuffer.bindToShader(grassshader, "Lights");
 
 Input.setMouseHandler(handleMouse);
 Input.init();
@@ -675,14 +711,13 @@ let cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bott
 gl.enable( gl.BLEND );
 gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
 gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ZERO);
+gl.cullFace( gl.BACK );
+gl.frontFace( gl.CCW );
+gl.enable( gl.CULL_FACE );
 requestAnimationFrame(render);
 
 function handleMouse(deltaX, deltaY) {
     camera.rotateBy(0, 0.0005 * deltaY, -0.0005 * deltaX);
-}
-
-function mesh_loaded(mesh) {
-    planemesh = mesh;
 }
 
 function resizeCanvas() {
@@ -749,6 +784,11 @@ function setupMainTextureUnits() {
     for(let i = 0; i < light_cull_shader.getRenderTextures().length; i++) {
         gl.uniform1i(gl.getUniformLocation(mainshader.getProgram(), 'lightData' + i), i+1);
     }
+
+    grassshader.use();
+    gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'grassPosXY'), 1);
+    gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'grassPosZW'), 2);
+    gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'grassPosRot'), 3);
 }
 
 function bindUnbindLightDataTextures(bind) {
@@ -821,6 +861,25 @@ function render(now) {
     mainshader.use();
     gl.uniform2f( gl.getUniformLocation( mainshader.getProgram(), "screen_size" ), canvas.width, canvas.height );
     renderObjects(now, false);
+
+    //grass
+    grass_comp_shader.dispatch();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    grassshader.use();
+
+    let grasstextures = grass_comp_shader.getRenderTextures();
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, grasstextures[0]);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, grasstextures[1]);
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, grasstextures[2]);
+
+    gl.disable( gl.CULL_FACE );
+    grassmesh.render(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
+    gl.enable( gl.CULL_FACE );
+    gl.activeTexture(gl.TEXTURE0);
 
     requestAnimationFrame(render);
 }

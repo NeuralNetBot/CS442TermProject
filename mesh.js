@@ -475,11 +475,7 @@ class Mesh {
      * 
      * @param {WebGLRenderingContext} gl 
      */
-    render( gl, program, instancecount = 1 ) {
-        gl.cullFace( gl.BACK );
-        gl.frontFace( gl.CCW );
-        gl.enable( gl.CULL_FACE );
-        
+    render( gl, program, instancecount = 1 ) {        
         gl.bindBuffer( gl.ARRAY_BUFFER, this.verts );
         gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, this.indis );
 
