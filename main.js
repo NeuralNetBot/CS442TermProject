@@ -517,8 +517,7 @@ let grass_comp_fragment_source =
     in vec2 aPosition;
 
     layout(location = 0) out vec4 grassPosXY;
-    layout(location = 1) out vec4 grassPosZW;
-    layout(location = 2) out vec4 grassRot;
+    layout(location = 1) out vec4 grassPosZROT;
 
     uniform vec2 grassSize;
     uniform float seed;
@@ -536,16 +535,14 @@ let grass_comp_fragment_source =
     void main() {
         vec2 tile = gl_FragCoord.xy;
 
-        vec2 grassPos = tile + randomVec2(tile, seed * 10.0);
-        grassPos /= grassSize;//packing from 0-1
+        vec2 grassPos = randomVec2(tile, seed * 10.0);
         
-        float grassPosZ = 0.0;//TODO: make this load from our height map
+        float grassPosY = 0.0;//TODO: make this load from our height map
 
-        vec2 grassRotation = randomVec2(tile, seed);
+        float grassRotation = random(tile + seed);
         
-        grassPosXY = vec4(grassPos.x, grassPos.y, 0.0, 1.0);
-        grassPosZW = vec4(grassPosZ, 0.0, 0.0, 1.0);
-        grassRot = vec4(grassPos.x, grassPos.y, 0.0, 1.0);
+        grassPosXY = vec4(grassPos.x, grassPosY, 0.0, 1.0);
+        grassPosZROT = vec4(grassPos.y, grassRotation, 0.0, 1.0);
     }
 `;
 
@@ -563,8 +560,7 @@ let grass_draw_vertex_source =
     } mvp;
 
     uniform sampler2D grassPosXY;
-    uniform sampler2D grassPosZW;
-    uniform sampler2D grassRot;
+    uniform sampler2D grassPosZROT;
     
     uniform vec2 grassSize;
 
@@ -577,10 +573,9 @@ let grass_draw_vertex_source =
     {
         instanceID = int(gl_InstanceID);
         vec2 grassIndex = vec2(instanceID % int(grassSize.x), instanceID / int(grassSize.x));
-        vec4 grassPos = vec4(texture(grassPosXY, grassIndex / grassSize).xy + grassIndex, texture(grassPosXY, grassIndex / grassSize).xy + grassIndex);
-        vec2 grassRotation = texture(grassRot, grassIndex / grassSize).xy;
-
-        float angle = atan(grassRotation.y, grassRotation.x);
+        vec2 ZROT = texture(grassPosZROT, grassIndex / grassSize).xy;
+        vec4 grassPos = vec4(texture(grassPosXY, grassIndex / grassSize).xy, ZROT.x, 1.0);
+        float angle = ZROT.y * 6.28;
         float s = sin(-angle);
         float c = cos(-angle);
         vec3 newpos = vec3(position.x * c - position.z * s, position.y, position.x * s + position.z * c);
@@ -588,8 +583,7 @@ let grass_draw_vertex_source =
         aPosition = position;
         aNormal = normal;
         aUV = uv;
-        //gl_Position = (mvp.view_projection) * vec4( newpos + grassPos.xyz, 1.0 );
-        gl_Position = (mvp.view_projection) * vec4( position + vec3(grassIndex.x, 0.0, grassIndex.y), 1.0 );
+        gl_Position = (mvp.view_projection) * vec4( newpos + grassPos.xyz + vec3(grassIndex.x, 0.0, grassIndex.y), 1.0 );
     }
 `;
 
@@ -632,7 +626,7 @@ setupMainTextureUnits();
 let grassSizeX = 100;
 let grassSizeY = 100;
 
-grass_comp_shader = new ComputeShader(gl, Shader.createShader(gl, grass_comp_vertex_source, grass_comp_fragment_source), grassSizeX, grassSizeY, 3);
+grass_comp_shader = new ComputeShader(gl, Shader.createShader(gl, grass_comp_vertex_source, grass_comp_fragment_source), grassSizeX, grassSizeY, 2);
 grass_comp_shader.use();
 gl.uniform1f( gl.getUniformLocation( grass_comp_shader.getProgram(), "seed" ), 1.0 );
 gl.uniform2f( gl.getUniformLocation( grass_comp_shader.getProgram(), "grassSize" ), grassSizeX, grassSizeY );
@@ -786,9 +780,8 @@ function setupMainTextureUnits() {
     }
 
     grassshader.use();
-    gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'grassPosXY'), 1);
-    gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'grassPosZW'), 2);
-    gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'grassPosRot'), 3);
+    gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'grassPosXY'), 0);
+    gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'grassPosZROT'), 1);
 }
 
 function bindUnbindLightDataTextures(bind) {
@@ -869,12 +862,10 @@ function render(now) {
     grassshader.use();
 
     let grasstextures = grass_comp_shader.getRenderTextures();
-    gl.activeTexture(gl.TEXTURE1);
+    gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, grasstextures[0]);
-    gl.activeTexture(gl.TEXTURE2);
+    gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, grasstextures[1]);
-    gl.activeTexture(gl.TEXTURE3);
-    gl.bindTexture(gl.TEXTURE_2D, grasstextures[2]);
 
     gl.disable( gl.CULL_FACE );
     grassmesh.render(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
