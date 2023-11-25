@@ -899,5 +899,8 @@ function render(now) {
     gl.enable( gl.CULL_FACE );
     gl.activeTexture(gl.TEXTURE0);
 
+    camera.calcFrustum();
+    console.log(camera.isPointInFrustum(new Vec4(0, 0, 0, 1)));
+
     requestAnimationFrame(render);
 }
