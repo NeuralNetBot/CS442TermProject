@@ -583,7 +583,7 @@ let grass_draw_vertex_source =
         vec3 newpos = vec3(position.x * c - position.z * s, position.y, position.x * s + position.z * c);
 
         vec3 noise3d = texture(noise, (grassIndex / grassSize) + windDir).xyz;
-        vec2 grasswindoffsetxz = (noise3d.xy * 2.0 - 1.0) * position.y * position.y / 20.0;
+        vec2 grasswindoffsetxz = (noise3d.xy - 0.5) * position.y * position.y / 10.0;
         vec3 grasswindoffset = vec3(grasswindoffsetxz.x, -length(grasswindoffsetxz), grasswindoffsetxz.y);
         grassPos.xyz += grasswindoffset;
 
@@ -710,7 +710,10 @@ Input.init();
 
 let doneload = false;
 let wind_noise_texture = loadTexture(gl, "grass/noise.png", function() {});
-let windDir = 0;
+let windDir = 5*Math.PI/4;
+let windspeed = 0.1;
+let windPosx = 0.0;
+let windPosy = 0.0;
 let tex = loadTexture(gl, "metal_scale.png", function() { doneload = true; });
 let cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bottom.jpg', 'front.jpg', 'back.jpg');
 gl.enable( gl.BLEND );
@@ -836,6 +839,9 @@ function render(now) {
 
     if (Input.getKeyState('1')) { windDir += 0.001; }
     if (Input.getKeyState('2')) { windDir -= 0.001; }
+    if (Input.getKeyState('3')) { windspeed += 0.01; }
+    if (Input.getKeyState('4')) { windspeed -= 0.01; }
+    if (Input.getKeyState('5')) { windspeed = 0.1; }
     
     //depth pass
     gl.bindTexture( gl.TEXTURE_2D, null );
@@ -876,7 +882,9 @@ function render(now) {
     gl.viewport(0, 0, canvas.width, canvas.height);
     grassshader.use();
     gl.uniform3f( gl.getUniformLocation( grassshader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
-    gl.uniform2f(gl.getUniformLocation(grassshader.getProgram(), 'windDir'), Math.sin(windDir) * now / 10000, Math.cos(windDir) * now / 10000);
+    windPosx += windspeed * Math.cos(windDir) * time_delta;
+    windPosy += windspeed * Math.sin(windDir) * time_delta;
+    gl.uniform2f(gl.getUniformLocation(grassshader.getProgram(), 'windDir'), windPosx, windPosy);
 
     let grasstextures = grass_comp_shader.getRenderTextures();
     gl.activeTexture(gl.TEXTURE0);
