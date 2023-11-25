@@ -893,7 +893,7 @@ function render(now) {
     camera.calcFrustum();
     chunkManager.getVisibleChunks().forEach(chunk => {
         grass_comp_shader.use();
-        gl.uniform1f( gl.getUniformLocation( grass_comp_shader.getProgram(), "seed" ), 1.0 );
+        gl.uniform1f( gl.getUniformLocation( grass_comp_shader.getProgram(), "seed" ), chunk[0] * 10 + chunk[1] );
         grass_comp_shader.dispatch();
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.viewport(0, 0, canvas.width, canvas.height);
