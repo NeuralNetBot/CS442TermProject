@@ -559,10 +559,12 @@ let grass_draw_vertex_source =
         mat4 view_projection;
     } mvp;
 
+    uniform sampler2D noise;
     uniform sampler2D grassPosXY;
     uniform sampler2D grassPosZROT;
     
     uniform vec2 grassSize;
+    uniform float time;
 
     out vec3 aPosition;
     out vec3 aNormal;
@@ -579,6 +581,11 @@ let grass_draw_vertex_source =
         float s = sin(-angle);
         float c = cos(-angle);
         vec3 newpos = vec3(position.x * c - position.z * s, position.y, position.x * s + position.z * c);
+
+        vec3 noise3d = texture(noise, (grassIndex / grassSize) + vec2(time)).xyz;
+        vec2 grasswindoffsetxz = (noise3d.xy * 2.0 - 1.0) * position.y * position.y / 20.0;
+        vec3 grasswindoffset = vec3(grasswindoffsetxz.x, -length(grasswindoffsetxz), grasswindoffsetxz.y);
+        grassPos.xyz += grasswindoffset;
 
         aPosition = position;
         aNormal = normal;
@@ -604,6 +611,8 @@ let grass_draw_fragment_source =
     in vec3 aNormal;
     in vec2 aUV;
     flat in int instanceID;
+
+    uniform vec3 camera_position;
 
     void main( void )
     {
@@ -700,6 +709,7 @@ Input.setMouseHandler(handleMouse);
 Input.init();
 
 let doneload = false;
+let wind_noise_texture = loadTexture(gl, "grass/noise.png", function() {});
 let tex = loadTexture(gl, "metal_scale.png", function() { doneload = true; });
 let cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bottom.jpg', 'front.jpg', 'back.jpg');
 gl.enable( gl.BLEND );
@@ -780,8 +790,9 @@ function setupMainTextureUnits() {
     }
 
     grassshader.use();
-    gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'grassPosXY'), 0);
-    gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'grassPosZROT'), 1);
+    gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'noise'), 0);
+    gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'grassPosXY'), 1);
+    gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'grassPosZROT'), 2);
 }
 
 function bindUnbindLightDataTextures(bind) {
@@ -860,11 +871,15 @@ function render(now) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, canvas.width, canvas.height);
     grassshader.use();
+    gl.uniform3f( gl.getUniformLocation( grassshader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
+    gl.uniform1f(gl.getUniformLocation(grassshader.getProgram(), 'time'), now / -10000);
 
     let grasstextures = grass_comp_shader.getRenderTextures();
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, grasstextures[0]);
+    gl.bindTexture(gl.TEXTURE_2D, wind_noise_texture);
     gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, grasstextures[0]);
+    gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_2D, grasstextures[1]);
 
     gl.disable( gl.CULL_FACE );
