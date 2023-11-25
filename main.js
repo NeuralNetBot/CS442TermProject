@@ -870,6 +870,7 @@ function render(now) {
 
 
     //main pass
+    gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture( gl.TEXTURE_2D, tex );
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -880,21 +881,23 @@ function render(now) {
     gl.uniform2f( gl.getUniformLocation( mainshader.getProgram(), "screen_size" ), canvas.width, canvas.height );
     renderObjects(now, false);
 
-    //grass
-    grass_comp_shader.dispatch();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, canvas.width, canvas.height);
     grassshader.use();
     gl.uniform3f( gl.getUniformLocation( grassshader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
     windPosx += windspeed * Math.cos(windDir) * time_delta;
     windPosy += windspeed * Math.sin(windDir) * time_delta;
     gl.uniform2f(gl.getUniformLocation(grassshader.getProgram(), 'windDir'), windPosx, windPosy);
 
-
+    //grass
     gl.disable( gl.CULL_FACE );
 
     camera.calcFrustum();
     chunkManager.getVisibleChunks().forEach(chunk => {
+        grass_comp_shader.use();
+        gl.uniform1f( gl.getUniformLocation( grass_comp_shader.getProgram(), "seed" ), 1.0 );
+        grass_comp_shader.dispatch();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        grassshader.use();
         gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null);
         gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, null);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, null);
