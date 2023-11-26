@@ -710,7 +710,7 @@ lightsBuffer.bindToShader(grassshader, "Lights");
 Input.setMouseHandler(handleMouse);
 Input.init();
 
-let chunkManager = new ChunkManager(50, 10, 3, camera);
+let chunkManager = new ChunkManager(100, 0, 5, 3, camera);
 
 let doneload = false;
 let wind_noise_texture = loadTexture(gl, "grass/noise.png", function() {});
@@ -758,7 +758,7 @@ function renderObjects(now, depthonly) {
         currentshader = depthshader.getProgram();
     }
 
-    let model = Mat4.translation(0.0, -1.0, 0.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_xz( 0.0 )));
+    let model = Mat4.translation(0.0, -1.0, 0.0).mul(Mat4.scale(10, 1, 10).mul(Mat4.rotation_xz( 0.0 )));
     
     let cameramat = camera.getMatrix();
     let viewpos = camera.getPosition();
@@ -889,9 +889,9 @@ function render(now) {
 
     //grass
     gl.disable( gl.CULL_FACE );
-
     camera.calcFrustum();
-    chunkManager.getVisibleChunks().forEach(chunk => {
+    let vischunks = chunkManager.getVisibleChunks();
+    vischunks.forEach(chunk => {
         grass_comp_shader.use();
         gl.uniform1f( gl.getUniformLocation( grass_comp_shader.getProgram(), "seed" ), chunk[0] * 10 + chunk[1] );
         grass_comp_shader.dispatch();
@@ -906,7 +906,7 @@ function render(now) {
         gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, grasstextures[0]);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, grasstextures[1]);
         
-        gl.uniform3f( gl.getUniformLocation( grassshader.getProgram(), "positionoffset" ), chunk[0] * 100 - 50, 0, chunk[1] * 100 - 50 );
+        gl.uniform3f( gl.getUniformLocation( grassshader.getProgram(), "positionoffset" ), chunk[0] * 100, 0, chunk[1] * 100 );
         grassmesh.render(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
     });
     

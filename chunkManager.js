@@ -2,13 +2,15 @@ class ChunkManager {
     /**
      * 
      * @param {number} chunksize
-     * @param {number} height
+     * @param {number} minheight
+     * @param {number} maxheight
      * @param {number} viewDist 
      * @param {Camera} camera 
      */
-    constructor(chunksize, height, viewDist, camera) {
+    constructor(chunksize, minheight, maxheight, viewDist, camera) {
         this.chunksize = chunksize;
-        this.height = height;
+        this.minheight = minheight;
+        this.maxheight = maxheight;
         this.viewDist = viewDist;
         this.camera = camera;
     }
@@ -16,27 +18,30 @@ class ChunkManager {
     getAllChunksInRange() {
         let cameraX = this.camera.getPosition().x;
         let cameraZ = this.camera.getPosition().z;
+        let cameraChunkX = Math.floor(cameraX / this.chunksize);
+        let cameraChunkZ = Math.floor(cameraZ / this.chunksize);
+        console.log(cameraChunkX, cameraChunkZ);
         let chunksInRange = [];
-        let chunkMinX = Math.floor(cameraX / this.chunksize)  - this.viewDist;
-        let chunkMinZ = Math.floor(cameraZ / this.chunksize) - this.viewDist;
-        let chunkMaxX = Math.floor(cameraX / this.chunksize) + this.viewDist;
-        let chunkMaxZ = Math.floor(cameraZ / this.chunksize) + this.viewDist;
+        let chunkMinX = cameraChunkX - this.viewDist;
+        let chunkMinZ = cameraChunkZ - this.viewDist;
+        let chunkMaxX = cameraChunkX + this.viewDist;
+        let chunkMaxZ = cameraChunkZ + this.viewDist;
 
         for (let x = chunkMinX; x <= chunkMaxX; x += 1) {
             for (let z = chunkMinZ; z <= chunkMaxZ; z += 1) {
                 chunksInRange.push([x, z]);
             }
         }
+        
         return chunksInRange;
     }
 
     getPointsForChunk(chunk) {
         let points = [];
-        for (let x = -1; x <= 1; x += 2) {
-            for (let z = -1; z <= 1; z += 2) {
-                for (let y = -1; y <= 1; y += 2) {
-                    points.push(new Vec4((chunk[0] + x) * this.chunksize, y * this.height, (chunk[1] + z) * this.chunksize, 1.0));
-                }
+        for (let x = 0; x <= 1; x += 1) {
+            for (let z = 0; z <= 1; z += 1) {
+                points.push(new Vec4((chunk[0] + x) * this.chunksize / 2, this.minheight, (chunk[1] + z) * this.chunksize / 2, 1.0));
+                points.push(new Vec4((chunk[0] + x) * this.chunksize / 2, this.maxheight, (chunk[1] + z) * this.chunksize / 2, 1.0));
             }
         }
         return points;
