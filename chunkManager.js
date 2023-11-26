@@ -40,8 +40,8 @@ class ChunkManager {
         let points = [];
         for (let x = 0; x <= 1; x += 1) {
             for (let z = 0; z <= 1; z += 1) {
-                points.push(new Vec4((chunk[0] + x) * this.chunksize / 2, this.minheight, (chunk[1] + z) * this.chunksize / 2, 1.0));
-                points.push(new Vec4((chunk[0] + x) * this.chunksize / 2, this.maxheight, (chunk[1] + z) * this.chunksize / 2, 1.0));
+                points.push(new Vec4((chunk[0] + x) * this.chunksize, this.minheight, (chunk[1] + z) * this.chunksize, 1.0));
+                points.push(new Vec4((chunk[0] + x) * this.chunksize, this.maxheight, (chunk[1] + z) * this.chunksize, 1.0));
             }
         }
         return points;
