@@ -5,13 +5,15 @@ class ChunkManager {
      * @param {number} minheight
      * @param {number} maxheight
      * @param {number} viewDist 
+     * @param {number} lodDist 
      * @param {Camera} camera 
      */
-    constructor(chunksize, minheight, maxheight, viewDist, camera) {
+    constructor(chunksize, minheight, maxheight, viewDist, lodDist, camera) {
         this.chunksize = chunksize;
         this.minheight = minheight;
         this.maxheight = maxheight;
         this.viewDist = viewDist;
+        this.lodDist = lodDist;
         this.camera = camera;
     }
 
@@ -29,7 +31,11 @@ class ChunkManager {
 
         for (let x = chunkMinX; x <= chunkMaxX; x += 1) {
             for (let z = chunkMinZ; z <= chunkMaxZ; z += 1) {
-                chunksInRange.push([x, z]);
+                let lod = 0;
+                if (((x * x) - (cameraChunkX * cameraChunkX)) + ((z * z) - (cameraChunkZ * cameraChunkZ)) >= (this.lodDist * this.lodDist)) {
+                    lod = 1;
+                }
+                chunksInRange.push([x, z, lod]);
             }
         }
         

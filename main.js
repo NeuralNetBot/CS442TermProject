@@ -652,6 +652,8 @@ let planemesh = null;
 Mesh.from_obj_file( gl, "plane.obj", function(mesh) { planemesh = mesh; } );
 let grassmesh = null;
 Mesh.from_obj_file( gl, "grass/grass.obj", function(mesh) { grassmesh = mesh; } );
+let grassmeshlod1 = null;
+Mesh.from_obj_file( gl, "grass/grasslod1.obj", function(mesh) { grassmeshlod1 = mesh; } );
 let sphere = Mesh.sphere( gl, 8 );
 let skyboxmesh = Mesh.box(gl);
 
@@ -710,15 +712,15 @@ lightsBuffer.bindToShader(grassshader, "Lights");
 Input.setMouseHandler(handleMouse);
 Input.init();
 
-let chunkManager = new ChunkManager(100, 0, 5, 3, camera);
+let chunkManager = new ChunkManager(100, 0, 5, 3, 3, camera);
 
 let doneload = false;
+let tex = loadTexture(gl, "metal_scale.png", function() { doneload = true; });
 let wind_noise_texture = loadTexture(gl, "grass/noise.png", function() {});
 let windDir = 5*Math.PI/4;
 let windspeed = 0.1;
 let windPosx = 0.0;
 let windPosy = 0.0;
-let tex = loadTexture(gl, "metal_scale.png", function() { doneload = true; });
 let cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bottom.jpg', 'front.jpg', 'back.jpg');
 gl.enable( gl.BLEND );
 gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
@@ -907,7 +909,11 @@ function render(now) {
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, grasstextures[1]);
         
         gl.uniform3f( gl.getUniformLocation( grassshader.getProgram(), "positionoffset" ), chunk[0] * 100, 0, chunk[1] * 100 );
-        grassmesh.render(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
+        if(chunk[2] == 1) {
+            grassmeshlod1.render(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
+        } else {
+            grassmesh.render(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
+        }
     });
     
     gl.enable( gl.CULL_FACE );
