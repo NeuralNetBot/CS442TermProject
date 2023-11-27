@@ -712,11 +712,13 @@ lightsBuffer.bindToShader(grassshader, "Lights");
 Input.setMouseHandler(handleMouse);
 Input.init();
 
-let chunkManager = new ChunkManager(100, 0, 5, 3, 3, camera);
+let chunkManager = new ChunkManager(100, 0, 5, 3, 2.5, camera);
 
 let doneload = false;
 let tex = loadTexture(gl, "metal_scale.png", function() { doneload = true; });
+let heightmapmesh = null;
 let wind_noise_texture = loadTexture(gl, "grass/noise.png", function() {});
+loadImage("heightmap.png", function(heightimage) { heightmapmesh = Mesh.fromHeightMap(gl, heightimage, 0, 0, 100, 100, 10, 10); });
 let windDir = 5*Math.PI/4;
 let windspeed = 0.1;
 let windPosx = 0.0;
@@ -770,8 +772,13 @@ function renderObjects(now, depthonly) {
     MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
     MVPBuffer.setData(cameramat.asColumnMajorFloat32Array(), 4 * 16);
     
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture( gl.TEXTURE_2D, tex );
     if (planemesh) {
         planemesh.render(gl, currentshader);
+    }
+    if (heightmapmesh) {
+        heightmapmesh.render(gl, currentshader);
     }
     //render objects that we dont want to be included in our depth information
     if(!depthonly) {

@@ -96,10 +96,19 @@ function loadTexture(gl, path, callback) {
     image.onload = function () {
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
         gl.generateMipmap(gl.TEXTURE_2D);
-        callback();
+        callback(image);
     };
     
     return tex;
+}
+
+function loadImage(path, callback) {
+    const image = new Image();
+    image.src = path;
+
+    image.onload = function () {
+        callback(image);
+    };
 }
 
 function loadCubeMap(gl, right, left, top, bottom, front, back) {

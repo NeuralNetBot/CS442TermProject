@@ -428,6 +428,71 @@ class Mesh {
         }
         return new Mesh( gl, verts, indis );    
     }
+    
+    static fromHeightMap(gl, heightimage, offsetx, offsety, sizex, sizey, scalexz, scaley) {
+        const canvas = document.getElementById('imagereadcanvas');
+        canvas.width = heightimage.width;
+        canvas.height = heightimage.height;
+        const context = canvas.getContext('2d');
+        context.drawImage(heightimage, 0, 0);
+
+        let verts = [];
+        let indices = [];
+
+        const imageData = context.getImageData(offsetx, offsety, sizex, sizey);
+        for (let y = 0; y < sizey; y++) {
+            for (let x = 0; x < sizex; x++) {
+                const index = (y * sizex + x) * 4;
+                const red = imageData.data[index];
+                const green = imageData.data[index + 1];
+                const blue = imageData.data[index + 2];
+                const alpha = imageData.data[index + 3];
+                //position
+                verts.push((x / sizex) * scalexz, ((red / 255) * scaley) + 10, (y / sizey) * scalexz);
+                //console.log((x / sizex) * scalexz, ((red / 255) * scaley) + 10, (y / sizey) * scalexz);
+                
+                //normal
+                const heightCenter = verts[index + 1];
+                let heightLeft = heightCenter;
+                let heightRight = heightCenter;
+                let heightUp = heightCenter;
+                let heightDown = heightCenter;
+
+                if (x > 0) heightLeft = verts[index - 3 + 1];
+                if (x < sizex - 1) heightRight = verts[index + 3 + 1];
+                if (y > 0) heightUp = verts[index - (sizex * 3) + 1];
+                if (y < sizey - 1) heightDown = verts[index + (sizex * 3) + 1];
+
+                const dx = (heightRight - heightLeft);
+                const dy = (heightDown - heightUp);
+
+                const normal = [ -dx * scalexz, 2 * scaley, -dy * scalexz, ];
+
+                const length = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+                if (length !== 0) {
+                    normal[0] /= length;
+                    normal[1] /= length;
+                    normal[2] /= length;
+                }
+                verts.push(...normal);
+                
+                //uv
+                verts.push(x / sizex, y / sizey);
+
+            }
+        }
+        for (let y = 0; y < sizey - 1; y++) {
+            for (let x = 0; x < sizex - 1; x++) {
+                const topLeft = y * sizex + x;
+                const topRight = topLeft + 1;
+                const bottomLeft = (y + 1) * sizex + x;
+                const bottomRight = bottomLeft + 1;
+                indices.push(topLeft, bottomLeft, topRight);
+                indices.push(topRight, bottomLeft, bottomRight);
+            }
+        }
+        return new Mesh( gl, verts, indices );
+    }
 
     static calculateTangent(surfaceNormal, uVec, vVec) {
         const tangent = uVec.slice();

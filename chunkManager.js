@@ -22,7 +22,6 @@ class ChunkManager {
         let cameraZ = this.camera.getPosition().z;
         let cameraChunkX = Math.floor(cameraX / this.chunksize);
         let cameraChunkZ = Math.floor(cameraZ / this.chunksize);
-        console.log(cameraChunkX, cameraChunkZ);
         let chunksInRange = [];
         let chunkMinX = cameraChunkX - this.viewDist;
         let chunkMinZ = cameraChunkZ - this.viewDist;
