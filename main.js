@@ -677,10 +677,10 @@ gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_shininess" ),
 const numLights = new Int32Array([4]);
 const lightPositions = new Float32Array(
     [
-        0.0, 1.0, 0.0, 0.0,
-        5.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, -2.0, 0.0,
-        0.0, 1.0, 5.0, 0.0
+        0.0, 11.0, 0.0, 0.0,
+        5.0, 11.0, 0.0, 0.0,
+        0.0, 10.0, -2.0, 0.0,
+        0.0, 11.0, 5.0, 0.0
     ]);
 const lightColors = new Float32Array(
     [
@@ -762,7 +762,7 @@ function renderObjects(now, depthonly) {
         currentshader = depthshader.getProgram();
     }
 
-    let model = Mat4.translation(0.0, -1.0, 0.0).mul(Mat4.scale(10, 1, 10).mul(Mat4.rotation_xz( 0.0 )));
+    let model = Mat4.translation(0.0, 9.0, 0.0).mul(Mat4.scale(10, 1, 10).mul(Mat4.rotation_xz( 0.0 )));
     
     let cameramat = camera.getMatrix();
     let viewpos = camera.getPosition();
@@ -790,11 +790,11 @@ function renderObjects(now, depthonly) {
         sphere.render(gl, lightshader.getProgram(), numLights);
 
         watershader.use();
-        model = Mat4.translation(0.0, 0.0, 0.0).mul(Mat4.scale(10, 10, 10));
+        model = Mat4.translation(20.0, 10.0, 0.0).mul(Mat4.scale(10, 10, 10));
         MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
         gl.uniform1f(gl.getUniformLocation(watershader.getProgram(), "time"), now / 1000);
         gl.uniform3f( gl.getUniformLocation( watershader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
-        //planemesh.render(gl, watershader.getProgram());
+        planemesh.render(gl, watershader.getProgram());
     }
     
 }
