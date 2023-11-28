@@ -448,26 +448,29 @@ class Mesh {
                 const blue = imageData.data[index + 2];
                 const alpha = imageData.data[index + 3];
                 //position
-                verts.push((x / sizex) * scalexz, ((red / 255) * scaley) + 10, (y / sizey) * scalexz);
-                //console.log((x / sizex) * scalexz, ((red / 255) * scaley) + 10, (y / sizey) * scalexz);
+                verts.push((x / sizex) * scalexz, ((red / 255) * scaley), (y / sizey) * scalexz);
                 
                 //normal
-                const heightCenter = verts[index + 1];
+                const heightCenter = ((red / 255) * scaley);
                 let heightLeft = heightCenter;
                 let heightRight = heightCenter;
                 let heightUp = heightCenter;
                 let heightDown = heightCenter;
-
-                if (x > 0) heightLeft = verts[index - 3 + 1];
-                if (x < sizex - 1) heightRight = verts[index + 3 + 1];
-                if (y > 0) heightUp = verts[index - (sizex * 3) + 1];
-                if (y < sizey - 1) heightDown = verts[index + (sizex * 3) + 1];
-
+        
+                if (x > 0) heightLeft = ((imageData.data[(y * sizex + (x - 1)) * 4] / 255) * scaley);
+                if (x < sizex - 1) heightRight = ((imageData.data[(y * sizex + (x + 1)) * 4] / 255) * scaley);
+                if (y > 0) heightUp = ((imageData.data[((y - 1) * sizex + x) * 4] / 255) * scaley);
+                if (y < sizey - 1) heightDown = ((imageData.data[((y + 1) * sizex + x) * 4] / 255) * scaley);
+        
                 const dx = (heightRight - heightLeft);
                 const dy = (heightDown - heightUp);
-
-                const normal = [ -dx * scalexz, 2 * scaley, -dy * scalexz, ];
-
+        
+                const normal = [
+                    -dx,
+                    2 * scaley,
+                    -dy,
+                ];
+        
                 const length = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
                 if (length !== 0) {
                     normal[0] /= length;
@@ -475,7 +478,6 @@ class Mesh {
                     normal[2] /= length;
                 }
                 verts.push(...normal);
-                
                 //uv
                 verts.push(x / sizex, y / sizey);
 

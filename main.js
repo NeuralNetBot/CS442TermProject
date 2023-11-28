@@ -135,7 +135,7 @@ let fragment_source =
             vec3 light_dir = normalize(lights.light_positions[lightindex] - aPosition);
             final += calcLight(light_dir, vec3(lights.light_colors[lightindex]), aNormal) * atten;
         }
-        f_color = vec4(final, 1.0) * texture(tex_0, aUV);
+        f_color = vec4(aNormal, 1.0);//vec4(final, 1.0) * texture(tex_0, aUV);
     }
 `;
 
@@ -656,7 +656,8 @@ let grassmeshlod1 = null;
 Mesh.from_obj_file( gl, "grass/grasslod1.obj", function(mesh) { grassmeshlod1 = mesh; } );
 let sphere = Mesh.sphere( gl, 8 );
 let skyboxmesh = Mesh.box(gl);
-
+let heightmapmesh = null;
+loadImage("heightmap.png", function(heightimage) { heightmapmesh = Mesh.fromHeightMap(gl, heightimage, 0, 0, 256, 256, 10, 10); });
 
 let perspective = Mat4.perspective(Math.PI / 2, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000);
 camera = new Camera(new Vec4(0, 0, 2, 0), 0, 0, 0, perspective);
@@ -716,9 +717,7 @@ let chunkManager = new ChunkManager(100, 0, 5, 3, 2.5, camera);
 
 let doneload = false;
 let tex = loadTexture(gl, "metal_scale.png", function() { doneload = true; });
-let heightmapmesh = null;
 let wind_noise_texture = loadTexture(gl, "grass/noise.png", function() {});
-loadImage("heightmap.png", function(heightimage) { heightmapmesh = Mesh.fromHeightMap(gl, heightimage, 0, 0, 100, 100, 10, 10); });
 let windDir = 5*Math.PI/4;
 let windspeed = 0.1;
 let windPosx = 0.0;
@@ -879,9 +878,6 @@ function render(now) {
 
 
     //main pass
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture( gl.TEXTURE_2D, tex );
-
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, canvas.width, canvas.height);
     

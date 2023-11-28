@@ -94,6 +94,7 @@ function loadTexture(gl, path, callback) {
     image.src = path;
 
     image.onload = function () {
+        gl.bindTexture( gl.TEXTURE_2D, tex );
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
         gl.generateMipmap(gl.TEXTURE_2D);
         callback(image);
