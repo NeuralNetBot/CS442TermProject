@@ -921,9 +921,9 @@ function render(now) {
         
         gl.uniform3f( gl.getUniformLocation( grassshader.getProgram(), "positionoffset" ), chunk[0] * 100, 0, chunk[1] * 100 );
         if(chunk[2] == 1) {
-            grassmeshlod1.render(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
+            grassmeshlod1.renderInstanced(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
         } else {
-            grassmesh.render(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
+            grassmesh.renderInstanced(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
         }
         
     });

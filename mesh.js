@@ -543,37 +543,26 @@ class Mesh {
      * 
      * @param {WebGLRenderingContext} gl 
      */
-    render( gl, program, instancecount = 1 ) {        
+    render( gl, program ) {        
         gl.bindBuffer( gl.ARRAY_BUFFER, this.verts );
         gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, this.indis );
 
-        Mesh.set_vertex_attrib_to_buffer( 
-            gl, program, 
-            "position", 
-            this.verts, 3, 
-            gl.FLOAT, false, VERTEX_STRIDE, 0 
-        );
+        Mesh.set_vertex_attrib_to_buffer( gl, program, "position", this.verts, 3, gl.FLOAT, false, VERTEX_STRIDE, 0  );
+        Mesh.set_vertex_attrib_to_buffer( gl, program, "normal", this.verts, 3, gl.FLOAT, false, VERTEX_STRIDE, 12  );
+        Mesh.set_vertex_attrib_to_buffer( gl, program, "uv", this.verts, 2, gl.FLOAT, false, VERTEX_STRIDE, 24 );
 
-        Mesh.set_vertex_attrib_to_buffer( 
-            gl, program, 
-            "normal", 
-            this.verts, 3, 
-            gl.FLOAT, false, VERTEX_STRIDE, 12 
-        );
+        gl.drawElements( gl.TRIANGLES, this.n_indis, this.use32bitindex ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, 0 );
+    }
+    
+    renderInstanced( gl, program, instancecount ) {        
+        gl.bindBuffer( gl.ARRAY_BUFFER, this.verts );
+        gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, this.indis );
 
-        Mesh.set_vertex_attrib_to_buffer( 
-            gl, program, 
-            "uv", 
-            this.verts, 2, 
-            gl.FLOAT, false, VERTEX_STRIDE, 24
-        );
-        
-        if(instancecount == 1) {
-            gl.drawElements( gl.TRIANGLES, this.n_indis, this.use32bitindex ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, 0 );
-        }
-        else {
-            gl.drawElementsInstanced( gl.TRIANGLES, this.n_indis, this.use32bitindex ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, 0, instancecount );
-        }
+        Mesh.set_vertex_attrib_to_buffer( gl, program, "position", this.verts, 3, gl.FLOAT, false, VERTEX_STRIDE, 0  );
+        Mesh.set_vertex_attrib_to_buffer( gl, program, "normal", this.verts, 3, gl.FLOAT, false, VERTEX_STRIDE, 12  );
+        Mesh.set_vertex_attrib_to_buffer( gl, program, "uv", this.verts, 2, gl.FLOAT, false, VERTEX_STRIDE, 24 );
+
+        gl.drawElementsInstanced( gl.TRIANGLES, this.n_indis, this.use32bitindex ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, 0, instancecount );
     }
 
     /**
