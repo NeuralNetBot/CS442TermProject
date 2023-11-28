@@ -519,6 +519,7 @@ let grass_comp_fragment_source =
     layout(location = 0) out vec4 grassPosXY;
     layout(location = 1) out vec4 grassPosZROT;
 
+    uniform sampler2D heightmap;
     uniform vec2 grassSize;
     uniform float seed;
     
@@ -537,7 +538,7 @@ let grass_comp_fragment_source =
 
         vec2 grassPos = randomVec2(tile, seed * 10.0);
         
-        float grassPosY = 0.0;//TODO: make this load from our height map
+        float grassPosY = texture(heightmap, tile/100.0).r * 10.0;//0.0;//TODO: make this load from our height map
 
         float grassRotation = random(tile + seed);
         
@@ -657,7 +658,7 @@ Mesh.from_obj_file( gl, "grass/grasslod1.obj", function(mesh) { grassmeshlod1 = 
 let sphere = Mesh.sphere( gl, 8 );
 let skyboxmesh = Mesh.box(gl);
 let heightmapmesh = null;
-loadImage("heightmap.png", function(heightimage) { heightmapmesh = Mesh.fromHeightMap(gl, heightimage, 0, 0, 1660, 947, 1 * 100, 0.042 * 200); });
+let heighttex = loadTexture(gl, "heightmap.png", function(heightimage) { heightmapmesh = Mesh.fromHeightMap(gl, heightimage, 0, 0, 1660, 947, 100, 10); });
 
 let perspective = Mat4.perspective(Math.PI / 2, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000);
 camera = new Camera(new Vec4(0, 0, 2, 0), 0, 0, 0, perspective);
@@ -854,11 +855,12 @@ function render(now) {
     if (Input.getKeyState('t')) { Input.lockMouse(); }
     if (Input.getKeyState('y')) { Input.unlockMouse(); }
 
-    if (Input.getKeyState('1')) { windDir += 0.001; }
-    if (Input.getKeyState('2')) { windDir -= 0.001; }
-    if (Input.getKeyState('3')) { windspeed += 0.01; }
-    if (Input.getKeyState('4')) { windspeed -= 0.01; }
-    if (Input.getKeyState('5')) { windspeed = 0.1; }
+    if (Input.getKeyState('1')) { camera.setRPY(0, 0, 0);    camera.setPosition(new Vec4(0,10,0)); }
+    if (Input.getKeyState('2')) { camera.setRPY(0, 0, 0.25); camera.setPosition(new Vec4(0,10,0)); }
+    if (Input.getKeyState('3')) { camera.setRPY(0, 0, 0.5);  camera.setPosition(new Vec4(0,10,0)); }
+    if (Input.getKeyState('4')) { camera.setRPY(0, 0, 0.75); camera.setPosition(new Vec4(0,10,0)); }
+    if (Input.getKeyState('5')) { camera.setRPY(0, 0.25, 0); camera.setPosition(new Vec4(0,10,0)); }
+    if (Input.getKeyState('6')) { camera.setRPY(0, 0.75, 0); camera.setPosition(new Vec4(0,10,0)); }
     
     //depth pass
     gl.bindTexture( gl.TEXTURE_2D, null );
@@ -904,6 +906,7 @@ function render(now) {
     vischunks.forEach(chunk => {
         grass_comp_shader.use();
         gl.uniform1f( gl.getUniformLocation( grass_comp_shader.getProgram(), "seed" ), chunk[0] * 10 + chunk[1] );
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, heighttex);
         grass_comp_shader.dispatch();
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.viewport(0, 0, canvas.width, canvas.height);
@@ -922,6 +925,7 @@ function render(now) {
         } else {
             grassmesh.render(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
         }
+        
     });
     
     gl.enable( gl.CULL_FACE );
