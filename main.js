@@ -135,7 +135,7 @@ let fragment_source =
             vec3 light_dir = normalize(lights.light_positions[lightindex] - aPosition);
             final += calcLight(light_dir, vec3(lights.light_colors[lightindex]), aNormal) * atten;
         }
-        f_color = vec4(aNormal, 1.0);//vec4(final, 1.0) * texture(tex_0, aUV);
+        f_color = vec4(final, 1.0) * texture(tex_0, aUV);
     }
 `;
 
