@@ -717,6 +717,7 @@ let chunkManager = new ChunkManager(100, 0, 5, 3, 2.5, camera);
 
 let doneload = false;
 let tex = loadTexture(gl, "metal_scale.png", function() { doneload = true; });
+let groundtex = loadTexture(gl, "ground/brown_mud_leaves_diffuse.jpg", function() { });
 let wind_noise_texture = loadTexture(gl, "grass/noise.png", function() {});
 let windDir = 5*Math.PI/4;
 let windspeed = 0.1;
@@ -779,6 +780,7 @@ function renderObjects(now, depthonly) {
     
     model = Mat4.translation(-50.0, 9.0, 0.0);
     MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
+    gl.bindTexture( gl.TEXTURE_2D, groundtex );
     if (heightmapmesh) {
         heightmapmesh.render(gl, currentshader);
     }
