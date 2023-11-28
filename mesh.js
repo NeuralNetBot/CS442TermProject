@@ -10,12 +10,13 @@ class Mesh {
      * @param {number[]} vertices
      * @param {number[]} indices
     */
-    constructor( gl, vertices, indices ) {
+    constructor( gl, vertices, indices, use32bitindex=false ) {
         this.verts = Mesh.create_and_load_vertex_buffer( gl, vertices, gl.STATIC_DRAW );
-        this.indis = Mesh.create_and_load_elements_buffer( gl, indices, gl.STATIC_DRAW );
+        this.indis = Mesh.create_and_load_elements_buffer( gl, indices, gl.STATIC_DRAW, use32bitindex );
 
         this.n_verts = vertices.length;
         this.n_indis = indices.length;
+        this.use32bitindex = use32bitindex;
     }
 
 
@@ -31,12 +32,12 @@ class Mesh {
         return buf_id;
     }
 
-    static create_and_load_elements_buffer(gl, data, usage) {
+    static create_and_load_elements_buffer(gl, data, usage, use32bitindex) {
         let current_array_buf = gl.getParameter( gl.ELEMENT_ARRAY_BUFFER_BINDING );
 
         let buf_id = gl.createBuffer();
         gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, buf_id );
-        gl.bufferData( gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(data), usage );
+        gl.bufferData( gl.ELEMENT_ARRAY_BUFFER, use32bitindex ? new Uint32Array(data) : new Uint16Array(data), usage );
         
         gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, current_array_buf );
 
@@ -493,7 +494,7 @@ class Mesh {
                 indices.push(topRight, bottomLeft, bottomRight);
             }
         }
-        return new Mesh( gl, verts, indices );
+        return new Mesh( gl, verts, indices, true );
     }
 
     static calculateTangent(surfaceNormal, uVec, vVec) {
@@ -568,10 +569,10 @@ class Mesh {
         );
         
         if(instancecount == 1) {
-            gl.drawElements( gl.TRIANGLES, this.n_indis, gl.UNSIGNED_SHORT, 0 );
+            gl.drawElements( gl.TRIANGLES, this.n_indis, this.use32bitindex ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, 0 );
         }
         else {
-            gl.drawElementsInstanced( gl.TRIANGLES, this.n_indis, gl.UNSIGNED_SHORT, 0, instancecount );
+            gl.drawElementsInstanced( gl.TRIANGLES, this.n_indis, this.use32bitindex ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, 0, instancecount );
         }
     }
 

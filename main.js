@@ -657,7 +657,7 @@ Mesh.from_obj_file( gl, "grass/grasslod1.obj", function(mesh) { grassmeshlod1 = 
 let sphere = Mesh.sphere( gl, 8 );
 let skyboxmesh = Mesh.box(gl);
 let heightmapmesh = null;
-loadImage("heightmap.png", function(heightimage) { heightmapmesh = Mesh.fromHeightMap(gl, heightimage, 0, 0, 256, 256, 10, 10); });
+loadImage("heightmap.png", function(heightimage) { heightmapmesh = Mesh.fromHeightMap(gl, heightimage, 0, 0, 1660, 947, 1 * 100, 0.042 * 200); });
 
 let perspective = Mat4.perspective(Math.PI / 2, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000);
 camera = new Camera(new Vec4(0, 0, 2, 0), 0, 0, 0, perspective);
@@ -776,6 +776,9 @@ function renderObjects(now, depthonly) {
     if (planemesh) {
         planemesh.render(gl, currentshader);
     }
+    
+    model = Mat4.translation(-50.0, 9.0, 0.0);
+    MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
     if (heightmapmesh) {
         heightmapmesh.render(gl, currentshader);
     }
