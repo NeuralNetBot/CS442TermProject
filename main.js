@@ -792,7 +792,7 @@ function renderObjects(now, depthonly) {
         skyboxmesh.render(gl, cubemapshader.getProgram());
 
         lightshader.use();
-        sphere.render(gl, lightshader.getProgram(), numLights);
+        sphere.renderInstanced(gl, lightshader.getProgram(), numLights);
 
         watershader.use();
         model = Mat4.translation(20.0, 10.0, 0.0).mul(Mat4.scale(10, 10, 10));
