@@ -522,6 +522,7 @@ let grass_comp_fragment_source =
     uniform sampler2D heightmap;
     uniform vec2 grassSize;
     uniform float seed;
+    uniform vec2 chunk;
     
     float random(vec2 st) {
         return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
@@ -538,7 +539,7 @@ let grass_comp_fragment_source =
 
         vec2 grassPos = randomVec2(tile, seed * 10.0);
         
-        float grassPosY = texture(heightmap, tile/100.0).r * 10.0;//0.0;//TODO: make this load from our height map
+        float grassPosY = texture(heightmap, ((chunk * 100.0) + (tile)) / 1000.0).r * 100.0;
 
         float grassRotation = random(tile + seed);
         
@@ -657,8 +658,15 @@ let grassmeshlod1 = null;
 Mesh.from_obj_file( gl, "grass/grasslod1.obj", function(mesh) { grassmeshlod1 = mesh; } );
 let sphere = Mesh.sphere( gl, 8 );
 let skyboxmesh = Mesh.box(gl);
-let heightmapmesh = null;
-let heighttex = loadTexture(gl, "heightmap.png", function(heightimage) { heightmapmesh = Mesh.fromHeightMap(gl, heightimage, 0, 0, 1660, 947, 100, 10); });
+
+
+let heighttextureloaded = false;
+let heightimage = null;
+let heighttex = loadTexture(gl, "heightmap.png", function(heightim) {
+    heighttextureloaded = true;
+    heightimage = heightim;
+});
+const heightmapmeshes = new HashMap2D();
 
 let perspective = Mat4.perspective(Math.PI / 2, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000);
 camera = new Camera(new Vec4(0, 0, 2, 0), 0, 0, 0, perspective);
@@ -672,9 +680,9 @@ gl.uniform3f( gl.getUniformLocation( mainshader.getProgram(), "sun_direction" ),
 gl.uniform3f( gl.getUniformLocation( mainshader.getProgram(), "sun_color" ), 1.0, 1.0, 1.0 );
 
 gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "ambient" ), 0.01 );
-gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_diffuse" ), 1.0 );
-gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_specular" ), 2.0 );
-gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_shininess" ), 32.0 );
+gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_diffuse" ), 0.1 );
+gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_specular" ), 0.1 );
+gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_shininess" ), 1.0 );
 
 const numLights = new Int32Array([4]);
 const lightPositions = new Float32Array(
@@ -779,12 +787,27 @@ function renderObjects(now, depthonly) {
         planemesh.render(gl, currentshader);
     }
     
-    model = Mat4.translation(-50.0, 9.0, 0.0);
-    MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
     gl.bindTexture( gl.TEXTURE_2D, groundtex );
-    if (heightmapmesh) {
-        heightmapmesh.render(gl, currentshader);
-    }
+    
+    let vischunks = chunkManager.getVisibleChunks();
+    vischunks.forEach(chunk => {
+        if (!heightmapmeshes.get(chunk[0], chunk[1]) && heighttextureloaded) {
+            const xpos = (chunk[0] % 10) * 100;
+            const ypos = (chunk[1] % 10) * 100;
+            const xsamplepos = xpos < 0 ? 1000 - Math.abs(xpos) : xpos;
+            const ysamplepos = ypos < 0 ? 1000 - Math.abs(ypos) : ypos;
+            
+            heightmapmeshes.set(chunk[0], chunk[1], [Mesh.fromHeightMap(gl, heightimage, xsamplepos, ysamplepos, 101, 101, 101, 100), xpos, ypos]);
+            console.log("loading chunk", xpos, ypos);
+        }
+        else {
+            heightmapmesh = heightmapmeshes.get(chunk[0], chunk[1]);
+            model = Mat4.translation(heightmapmesh[1], 0.0, heightmapmesh[2]);
+            MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);        
+            heightmapmesh[0].render(gl, currentshader);
+        }
+    });
+
     //render objects that we dont want to be included in our depth information
     if(!depthonly) {
         cubemapshader.use();
@@ -902,10 +925,12 @@ function render(now) {
     //grass
     gl.disable( gl.CULL_FACE );
     camera.calcFrustum();
+    chunkManager.updateVisibleChunks();
     let vischunks = chunkManager.getVisibleChunks();
     vischunks.forEach(chunk => {
         grass_comp_shader.use();
         gl.uniform1f( gl.getUniformLocation( grass_comp_shader.getProgram(), "seed" ), chunk[0] * 10 + chunk[1] );
+        gl.uniform2f( gl.getUniformLocation( grass_comp_shader.getProgram(), "chunk" ), chunk[0], chunk[1] );
         gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, heighttex);
         grass_comp_shader.dispatch();
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);

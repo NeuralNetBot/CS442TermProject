@@ -15,6 +15,7 @@ class ChunkManager {
         this.viewDist = viewDist;
         this.lodDist = lodDist;
         this.camera = camera;
+        this.vischunks = [];
     }
 
     getAllChunksInRange() {
@@ -51,14 +52,34 @@ class ChunkManager {
         }
         return points;
     }
-
-    getVisibleChunks() {
+    
+    updateVisibleChunks() {
         let vischunks = [];
         this.getAllChunksInRange().forEach(chunk => {
             if(this.camera.isPointsInFrustum(this.getPointsForChunk(chunk))) {
                 vischunks.push(chunk);
             }
         });
-        return vischunks;
+        this.vischunks = vischunks;
+    }
+
+    getVisibleChunks() {
+        return this.vischunks;
     }
 }
+
+//hash map for indexing at xy coords
+function HashMap2D() {
+  this.map = {};
+}
+
+HashMap2D.prototype.set = function(x, y, value) {
+  if (!this.map[x]) {
+    this.map[x] = {};
+  }
+  this.map[x][y] = value;
+};
+
+HashMap2D.prototype.get = function(x, y) {
+  return this.map[x] && this.map[x][y];
+};
