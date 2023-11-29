@@ -662,7 +662,7 @@ let skyboxmesh = Mesh.box(gl);
 
 let heighttextureloaded = false;
 let heightimage = null;
-let heighttex = loadTexture(gl, "heightmap.png", function(heightim) {
+let heighttex = loadTexture(gl, "heightmap2.png", function(heightim) {
     heighttextureloaded = true;
     heightimage = heightim;
 });

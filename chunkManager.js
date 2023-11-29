@@ -31,6 +31,7 @@ class ChunkManager {
 
         for (let x = chunkMinX; x <= chunkMaxX; x += 1) {
             for (let z = chunkMinZ; z <= chunkMaxZ; z += 1) {
+                if(x == cameraChunkX && z == cameraChunkZ) continue;//ignore chunk were in
                 let lod = 0;
                 if (((x * x) - (cameraChunkX * cameraChunkX)) + ((z * z) - (cameraChunkZ * cameraChunkZ)) >= (this.lodDist * this.lodDist)) {
                     lod = 1;
@@ -60,6 +61,11 @@ class ChunkManager {
                 vischunks.push(chunk);
             }
         });
+        let cameraX = this.camera.getPosition().x;
+        let cameraZ = this.camera.getPosition().z;
+        let cameraChunkX = Math.floor(cameraX / this.chunksize);
+        let cameraChunkZ = Math.floor(cameraZ / this.chunksize);
+        vischunks.push([cameraChunkX, cameraChunkZ, 0]);
         this.vischunks = vischunks;
     }
 
