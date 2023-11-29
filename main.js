@@ -539,7 +539,7 @@ let grass_comp_fragment_source =
 
         vec2 grassPos = randomVec2(tile, seed * 10.0);
         
-        float grassPosY = texture(heightmap, ((chunk * 100.0) + (tile)) / 1000.0).r * 100.0;
+        float grassPosY = texture(heightmap, ((chunk * 100.0) + (tile)) / 1000.0).r * 50.0;
 
         float grassRotation = random(tile + seed);
         
@@ -680,7 +680,7 @@ gl.uniform3f( gl.getUniformLocation( mainshader.getProgram(), "sun_direction" ),
 gl.uniform3f( gl.getUniformLocation( mainshader.getProgram(), "sun_color" ), 1.0, 1.0, 1.0 );
 
 gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "ambient" ), 0.01 );
-gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_diffuse" ), 0.1 );
+gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_diffuse" ), 0.3 );
 gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_specular" ), 0.1 );
 gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_shininess" ), 1.0 );
 
@@ -789,6 +789,7 @@ function renderObjects(now, depthonly) {
     
     gl.bindTexture( gl.TEXTURE_2D, groundtex );
     
+    //render terrain for the chunks
     let vischunks = chunkManager.getVisibleChunks();
     vischunks.forEach(chunk => {
         if (!heightmapmeshes.get(chunk[0], chunk[1]) && heighttextureloaded) {
@@ -797,7 +798,7 @@ function renderObjects(now, depthonly) {
             const xsamplepos = xpos < 0 ? 1000 - Math.abs(xpos) : xpos;
             const ysamplepos = ypos < 0 ? 1000 - Math.abs(ypos) : ypos;
             
-            heightmapmeshes.set(chunk[0], chunk[1], [Mesh.fromHeightMap(gl, heightimage, xsamplepos, ysamplepos, 101, 101, 101, 100), xpos, ypos]);
+            heightmapmeshes.set(chunk[0], chunk[1], [Mesh.fromHeightMap(gl, heightimage, xsamplepos, ysamplepos, 101, 101, 101, 50), xpos, ypos]);
             console.log("loading chunk", xpos, ypos);
         }
         else {
