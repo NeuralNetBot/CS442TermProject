@@ -82,6 +82,23 @@ function createFramebuffer(gl, width, height, numAttachments, floatformat=true) 
     return { framebuffer: framebuffer, textures: colorAttachments };
 }
 
+function createFramebufferTextureless(gl, target, textureID) {
+    const framebuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, target, textureID, 0);
+
+    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (status !== gl.FRAMEBUFFER_COMPLETE) {
+        console.error('Framebuffer creation error: ' + status.toString(16));
+        return null;
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    return { framebuffer: framebuffer, texture: textureID };
+}
+
 
 function loadTexture(gl, path, callback) {
     let tex = gl.createTexture();
@@ -94,7 +111,8 @@ function loadTexture(gl, path, callback) {
     image.src = path;
 
     image.onload = function () {
-        gl.bindTexture( gl.TEXTURE_2D, tex );
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
         gl.generateMipmap(gl.TEXTURE_2D);
         callback(image);
@@ -112,7 +130,7 @@ function loadImage(path, callback) {
     };
 }
 
-function loadCubeMap(gl, right, left, top, bottom, front, back) {
+function loadCubeMap(gl, right, left, top, bottom, front, back, callback) {
     let cube_map_texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube_map_texture);
 
@@ -120,37 +138,42 @@ function loadCubeMap(gl, right, left, top, bottom, front, back) {
         {
             target: gl.TEXTURE_CUBE_MAP_POSITIVE_X,
             jpg: right,
+            index: 0
         },
 
         {
             target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X,
             jpg: left,
+            index: 1
         },
 
         {
             target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y,
             jpg: top,
+            index: 2
         },
 
         {
             target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y,
             jpg: bottom,
+            index: 3
         },
 
         {
             target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z,
             jpg: front,
+            index: 4
         },
 
         {
             target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z,
             jpg: back,
+            index: 5
         },
     ];
 
-
     faces.forEach((face) => {
-        const { target, jpg } = face;
+        const { target, jpg, index } = face;
 
         const level = 0;
         const internal_format = gl.RGBA;
@@ -161,10 +184,10 @@ function loadCubeMap(gl, right, left, top, bottom, front, back) {
 
         const image1 = new Image();
         image1.src = jpg;
-
         image1.onload = function () {
             gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube_map_texture);
             gl.texImage2D(target, level, internal_format, format, type, image1);
+            callback(index);
         }
     });
 
@@ -176,3 +199,70 @@ function loadCubeMap(gl, right, left, top, bottom, front, back) {
 
     return cube_map_texture;
 }
+
+function createCubemapFrameBuffer(cubeMapID) {
+
+    cube_map_camera.setRPY(0.5, 0.0, 0.0);
+    let back = createFramebufferTextureless(gl, gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, cubeMapID);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, back.framebuffer);
+    gl.viewport(0, 0, 2048, 2048);
+    //gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    renderTerrain();
+    gl.finish();
+
+    cube_map_camera.setRPY(0.5, 0.0, 0.75);
+    let right = createFramebufferTextureless(gl, gl.TEXTURE_CUBE_MAP_POSITIVE_X, cubeMapID);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, right.framebuffer);
+    gl.viewport(0, 0, 2048, 2048);
+    //gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    renderTerrain();
+    gl.finish();
+
+    cube_map_camera.setRPY(0.5, 0.0, 0.5);
+    let front = createFramebufferTextureless(gl, gl.TEXTURE_CUBE_MAP_POSITIVE_Z, cubeMapID);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, front.framebuffer);
+    gl.viewport(0, 0, 2048, 2048);
+    //gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    renderTerrain();
+    gl.finish();
+
+    cube_map_camera.setRPY(0.5, 0.0, 0.25);
+    let left = createFramebufferTextureless(gl, gl.TEXTURE_CUBE_MAP_NEGATIVE_X, cubeMapID);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, left.framebuffer);
+    gl.viewport(0, 0, 2048, 2048);
+    //gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    renderTerrain();
+    gl.finish();
+
+    cube_map_camera.setRPY(0.5, 0.75, 0.0);
+    let top = createFramebufferTextureless(gl, gl.TEXTURE_CUBE_MAP_POSITIVE_Y, cubeMapID);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, top.framebuffer);
+    gl.viewport(0, 0, 2048, 2048);
+    //gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    renderTerrain();
+    gl.finish();
+
+    cube_map_camera.setRPY(0.5, 0.25, 0.0);
+    let bottom = createFramebufferTextureless(gl, gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, cubeMapID);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, bottom.framebuffer);
+    gl.viewport(0, 0, 2048, 2048);
+    //gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    renderTerrain();
+    gl.finish();
+
+    gl.deleteFramebuffer(back.framebuffer);
+    gl.deleteFramebuffer(front.framebuffer);
+    gl.deleteFramebuffer(left.framebuffer);
+    gl.deleteFramebuffer(right.framebuffer);
+    gl.deleteFramebuffer(top.framebuffer);
+    gl.deleteFramebuffer(bottom.framebuffer);
+
+    //return loadCubeMap(gl, right, left, top, bottom, front, back);
+}
+

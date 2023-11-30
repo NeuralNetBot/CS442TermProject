@@ -198,7 +198,7 @@ let water_vertex_source =
     out vec3 v_normal;
     out vec2 v_uv;
     out vec3 v_pos;
-
+    
     float frequency = 3000.0;
     float amplitude = 0.1;
     float speed = 3.0;
@@ -211,9 +211,9 @@ let water_vertex_source =
         // based off of partial derivative of wave
         v_normal = normalize(normalize(vec3(1.0, amplitude * -sin(displacement), 0.0 * normal.y)) * mat3(mvp.model));
 
-
         gl_Position = mvp.view_projection * mvp.model * vec4( wave_pos, 1.0 );
         v_pos = vec3(mvp.model * vec4(wave_pos, 1.0));
+
         v_uv = uv;
        
     } `;
@@ -228,7 +228,7 @@ let water_fragment_source =
     in vec2 v_uv;
     in vec3 v_pos;
 
-    float fresnelPower = 3.0; 
+    float fresnelPower = 10.0; 
     float mat_ambient = 0.25;
     float mat_diffuse = 1.0;
     float mat_specular = 2.0;
@@ -667,7 +667,10 @@ let grassmeshlod1 = null;
 Mesh.from_obj_file( gl, "grass/grasslod1.obj", function(mesh) { grassmeshlod1 = mesh; } );
 let sphere = Mesh.sphere( gl, 8 );
 let skyboxmesh = Mesh.box(gl);
+let box = Mesh.box(gl);
 
+let cube_map_perspective = Mat4.perspective(Math.PI / 2, 1, 0.1, 1000);
+cube_map_camera = new Camera(new Vec4(0, 0, 0, 0), 0, 0, 0, cube_map_perspective);
 
 let heighttextureloaded = false;
 let heightimage = null;
@@ -676,6 +679,7 @@ let heighttex = loadTexture(gl, "ground/heightmap3.png", function(heightim) {
     heightimage = heightim;
 });
 const heightmapmeshes = new HashMap2D();
+
 
 let perspective = Mat4.perspective(Math.PI / 2, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000);
 camera = new Camera(new Vec4(-373, 55, 303, 1), 0, 0, 0.5, perspective);
@@ -734,20 +738,32 @@ Input.init();
 let chunkManager = new ChunkManager(100, 0, 50, 3, 2.5, camera);
 
 let doneload = false;
+let cubemaploaded = [false, false, false, false, false, false];
 let tex = loadTexture(gl, "metal_scale.png", function() { doneload = true; });
+
 let groundtex = loadTexture(gl, "ground/brown_mud_leaves_diffuse.jpg", function() { });
 let wind_noise_texture = loadTexture(gl, "grass/noise.png", function() {});
 let windDir = 5*Math.PI/4;
 let windspeed = 0.1;
 let windPosx = 0.0;
 let windPosy = 0.0;
-let cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bottom.jpg', 'front.jpg', 'back.jpg');
+
+let cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bottom.jpg', 'front.jpg', 'back.jpg', function() { });
+let new_cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bottom.jpg', 'front.jpg', 'back.jpg', function(index) { cubemaploaded[index] = true; console.log(index); });
+
+let renderCubeMap = false;
+let sceneGraph = new SceneGraph();
+let node3 = new Node(null, Mat4.translation(0.0, 0.0, -5.0));
+let node2 = new Node(null, Mat4.translation(0.0, 0.0, -5.0), [node3]);
+let node1 = new Node(sceneGraph.getRoot(), Mat4.translation(0, 0, 0), [node2]);
+sceneGraph.update();
 gl.enable( gl.BLEND );
 gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
 gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ZERO);
 gl.cullFace( gl.BACK );
 gl.frontFace( gl.CCW );
 gl.enable( gl.CULL_FACE );
+
 requestAnimationFrame(render);
 
 function handleMouse(deltaX, deltaY) {
@@ -774,6 +790,28 @@ function resizeCanvas() {
     gl.viewport(0, 0, canvas.width, canvas.height);
 }
 
+
+function renderTerrain() {
+    mainshader.use();
+    //let model = Mat4.translation(0.0, -1.0, 0.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_xy( 0.0 )));
+    let model = Mat4.translation(0.0, 4.0, -30.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_yz( -0.25 )));
+
+
+    //let cameramat = camera.getMatrix();
+    //let viewpos = camera.getPosition();
+    let cameramat = cube_map_camera.getMatrix();
+    let viewpos = cube_map_camera.getPosition();
+
+    gl.uniform3f( gl.getUniformLocation( mainshader.getProgram(), "view_pos" ), viewpos.x, viewpos.y, viewpos.z );
+    
+    MVPBuffer.bind();
+    MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
+    MVPBuffer.setData(cameramat.asColumnMajorFloat32Array(), 4 * 16);
+
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    planemesh.render(gl, mainshader.getProgram());
+}
+
 function renderObjects(time_delta, now, depthonly) {
     let currentshader = mainshader.getProgram();
     if(depthonly) {
@@ -791,6 +829,7 @@ function renderObjects(time_delta, now, depthonly) {
     
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture( gl.TEXTURE_2D, tex );
+
     if (planemesh) {
         planemesh.render(gl, currentshader);
     }
@@ -819,6 +858,20 @@ function renderObjects(time_delta, now, depthonly) {
 
     //render objects that we dont want to be included in our depth information
     if(!depthonly) {
+        cubemapshader.use();
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube_map_texture);
+        skyboxmesh.render(gl, cubemapshader.getProgram());
+
+        mainshader.use();
+        MVPBuffer.setData(node1.matrix.asColumnMajorFloat32Array(), 0);
+        sphere.render(gl, mainshader.getProgram());
+
+        MVPBuffer.setData(node2.matrix.asColumnMajorFloat32Array(), 0);
+        sphere.render(gl, mainshader.getProgram());
+
+        MVPBuffer.setData(node3.matrix.asColumnMajorFloat32Array(), 0);
+        sphere.render(gl, mainshader.getProgram());
+
         lightshader.use();
         sphere.renderInstanced(gl, lightshader.getProgram(), numLights);
 
@@ -827,6 +880,7 @@ function renderObjects(time_delta, now, depthonly) {
         MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
         gl.uniform1f(gl.getUniformLocation(watershader.getProgram(), "time"), now / 1000);
         gl.uniform3f( gl.getUniformLocation( watershader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, new_cube_map_texture);
         planemesh.render(gl, watershader.getProgram());
 
         //grass
@@ -877,7 +931,6 @@ function renderObjects(time_delta, now, depthonly) {
         gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube_map_texture);
         skyboxmesh.render(gl, cubemapshader.getProgram());
     }
-    
 }
 
 function setupMainTextureUnits() {
@@ -907,8 +960,13 @@ function bindUnbindLightDataTextures(bind) {
 }
 
 function render(now) {
-    if(!doneload) { requestAnimationFrame(render); return; }
+    if(!doneload || !cubemaploaded.every(e => e === true)) { requestAnimationFrame(render); return; }
     
+    if(!renderCubeMap) {
+        renderCubeMap = true;
+        createCubemapFrameBuffer(new_cube_map_texture);
+    }
+
     let time_delta = ( now - last_update ) / 1000;
     last_update = now;
 
