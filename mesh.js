@@ -10,12 +10,13 @@ class Mesh {
      * @param {number[]} vertices
      * @param {number[]} indices
     */
-    constructor( gl, vertices, indices ) {
+    constructor( gl, vertices, indices, use32bitindex=false ) {
         this.verts = Mesh.create_and_load_vertex_buffer( gl, vertices, gl.STATIC_DRAW );
-        this.indis = Mesh.create_and_load_elements_buffer( gl, indices, gl.STATIC_DRAW );
+        this.indis = Mesh.create_and_load_elements_buffer( gl, indices, gl.STATIC_DRAW, use32bitindex );
 
         this.n_verts = vertices.length;
         this.n_indis = indices.length;
+        this.use32bitindex = use32bitindex;
     }
 
 
@@ -31,12 +32,12 @@ class Mesh {
         return buf_id;
     }
 
-    static create_and_load_elements_buffer(gl, data, usage) {
+    static create_and_load_elements_buffer(gl, data, usage, use32bitindex) {
         let current_array_buf = gl.getParameter( gl.ELEMENT_ARRAY_BUFFER_BINDING );
 
         let buf_id = gl.createBuffer();
         gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, buf_id );
-        gl.bufferData( gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(data), usage );
+        gl.bufferData( gl.ELEMENT_ARRAY_BUFFER, use32bitindex ? new Uint32Array(data) : new Uint16Array(data), usage );
         
         gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, current_array_buf );
 
@@ -428,47 +429,140 @@ class Mesh {
         }
         return new Mesh( gl, verts, indis );    
     }
+    
+    static fromHeightMap(gl, heightimage, offsetx, offsety, sizex, sizey, scalexz, scaley) {
+        const canvas = document.getElementById('imagereadcanvas');
+        canvas.width = heightimage.width;
+        canvas.height = heightimage.height;
+        const context = canvas.getContext('2d');
+        context.drawImage(heightimage, 0, 0);
+
+        let verts = [];
+        let indices = [];
+
+        const imageData = context.getImageData(offsetx, offsety, sizex, sizey);
+        for (let y = 0; y < sizey; y++) {
+            for (let x = 0; x < sizex; x++) {
+                const index = (y * sizex + x) * 4;
+                const red = imageData.data[index];
+                const green = imageData.data[index + 1];
+                const blue = imageData.data[index + 2];
+                const alpha = imageData.data[index + 3];
+                //position
+                verts.push((x / sizex) * scalexz, ((red / 255) * scaley), (y / sizey) * scalexz);
+                
+                //normal
+                const heightCenter = ((red / 255) * scaley);
+                let heightLeft = heightCenter;
+                let heightRight = heightCenter;
+                let heightUp = heightCenter;
+                let heightDown = heightCenter;
+        
+                if (x > 0) heightLeft = ((imageData.data[(y * sizex + (x - 1)) * 4] / 255) * scaley);
+                if (x < sizex - 1) heightRight = ((imageData.data[(y * sizex + (x + 1)) * 4] / 255) * scaley);
+                if (y > 0) heightUp = ((imageData.data[((y - 1) * sizex + x) * 4] / 255) * scaley);
+                if (y < sizey - 1) heightDown = ((imageData.data[((y + 1) * sizex + x) * 4] / 255) * scaley);
+        
+                const dx = (heightRight - heightLeft);
+                const dy = (heightDown - heightUp);
+        
+                const normal = [
+                    -dx,
+                    2 * scaley,
+                    -dy,
+                ];
+        
+                const length = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+                if (length !== 0) {
+                    normal[0] /= length;
+                    normal[1] /= length;
+                    normal[2] /= length;
+                }
+                verts.push(...normal);
+                //uv
+                verts.push(x / sizex, y / sizey);
+
+            }
+        }
+        for (let y = 0; y < sizey - 1; y++) {
+            for (let x = 0; x < sizex - 1; x++) {
+                const topLeft = y * sizex + x;
+                const topRight = topLeft + 1;
+                const bottomLeft = (y + 1) * sizex + x;
+                const bottomRight = bottomLeft + 1;
+                indices.push(topLeft, bottomLeft, topRight);
+                indices.push(topRight, bottomLeft, bottomRight);
+            }
+        }
+        return new Mesh( gl, verts, indices, true );
+    }
+
+    static calculateTangent(surfaceNormal, uVec, vVec) {
+        const tangent = uVec.slice();
+        const cross = [
+            uVec[1] * vVec[2] - uVec[2] * vVec[1],
+            uVec[2] * vVec[0] - uVec[0] * vVec[2],
+            uVec[0] * vVec[1] - uVec[1] * vVec[0]
+        ];
+    
+        const dot = cross[0] * surfaceNormal[0] + cross[1] * surfaceNormal[1] + cross[2] * surfaceNormal[2];
+        if (dot < 0.0) {
+            cross.forEach((component, index) => {
+                tangent[index] = -component;
+            });
+        }
+    
+        return tangent;
+    }
+
+    static calculateTangents(normals, uvs) {
+        const tangents = [];
+    
+        for (let i = 0; i < normals.length; i += 9) {
+            const normal1 = normals.slice(i, i + 3);
+            const normal2 = normals.slice(i + 3, i + 6);
+            const normal3 = normals.slice(i + 6, i + 9);
+    
+            const uv1 = uvs.slice(i, i + 2);
+            const uv2 = uvs.slice(i + 2, i + 4);
+            const uv3 = uvs.slice(i + 4, i + 6);
+    
+            const edge1 = [uv2[0] - uv1[0], uv2[1] - uv1[1], 0];
+            const edge2 = [uv3[0] - uv1[0], uv3[1] - uv1[1], 0];
+    
+            const tangent = calculateTangent(normal1, edge1, edge2);
+    
+            tangents.push(...tangent, ...tangent, ...tangent);
+        }
+    
+        return tangents;
+    }
 
     /**
      * Render the mesh. Does NOT preserve array/index buffer or program bindings! 
      * 
      * @param {WebGLRenderingContext} gl 
      */
-    render( gl, program, instancecount = 1 ) {
-        gl.cullFace( gl.BACK );
-        gl.frontFace( gl.CCW );
-        gl.enable( gl.CULL_FACE );
-        
+    render( gl, program ) {        
         gl.bindBuffer( gl.ARRAY_BUFFER, this.verts );
         gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, this.indis );
 
-        Mesh.set_vertex_attrib_to_buffer( 
-            gl, program, 
-            "position", 
-            this.verts, 3, 
-            gl.FLOAT, false, VERTEX_STRIDE, 0 
-        );
+        Mesh.set_vertex_attrib_to_buffer( gl, program, "position", this.verts, 3, gl.FLOAT, false, VERTEX_STRIDE, 0  );
+        Mesh.set_vertex_attrib_to_buffer( gl, program, "normal", this.verts, 3, gl.FLOAT, false, VERTEX_STRIDE, 12  );
+        Mesh.set_vertex_attrib_to_buffer( gl, program, "uv", this.verts, 2, gl.FLOAT, false, VERTEX_STRIDE, 24 );
 
-        Mesh.set_vertex_attrib_to_buffer( 
-            gl, program, 
-            "normal", 
-            this.verts, 3, 
-            gl.FLOAT, false, VERTEX_STRIDE, 12 
-        );
+        gl.drawElements( gl.TRIANGLES, this.n_indis, this.use32bitindex ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, 0 );
+    }
+    
+    renderInstanced( gl, program, instancecount ) {        
+        gl.bindBuffer( gl.ARRAY_BUFFER, this.verts );
+        gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, this.indis );
 
-        Mesh.set_vertex_attrib_to_buffer( 
-            gl, program, 
-            "uv", 
-            this.verts, 2, 
-            gl.FLOAT, false, VERTEX_STRIDE, 24
-        );
-        
-        if(instancecount == 1) {
-            gl.drawElements( gl.TRIANGLES, this.n_indis, gl.UNSIGNED_SHORT, 0 );
-        }
-        else {
-            gl.drawElementsInstanced( gl.TRIANGLES, this.n_indis, gl.UNSIGNED_SHORT, 0, instancecount );
-        }
+        Mesh.set_vertex_attrib_to_buffer( gl, program, "position", this.verts, 3, gl.FLOAT, false, VERTEX_STRIDE, 0  );
+        Mesh.set_vertex_attrib_to_buffer( gl, program, "normal", this.verts, 3, gl.FLOAT, false, VERTEX_STRIDE, 12  );
+        Mesh.set_vertex_attrib_to_buffer( gl, program, "uv", this.verts, 2, gl.FLOAT, false, VERTEX_STRIDE, 24 );
+
+        gl.drawElementsInstanced( gl.TRIANGLES, this.n_indis, this.use32bitindex ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, 0, instancecount );
     }
 
     /**

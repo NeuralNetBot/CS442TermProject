@@ -74,8 +74,8 @@ class ComputeShader
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
     
-    getRenderTexture() {
-        return this.frameBufferInfo.texture;
+    getRenderTextures() {
+        return this.frameBufferInfo.textures;
     }
     
     rebuild(gl, size_x, size_y, framebuffer_z) {
@@ -88,6 +88,10 @@ class ComputeShader
     
     getProgram() {
         return this.shader.getProgram();
+    }
+
+    use() {
+        this.shader.use();
     }
 }
 
