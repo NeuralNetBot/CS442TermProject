@@ -199,8 +199,8 @@ let water_vertex_source =
     out vec2 v_uv;
     out vec3 v_pos;
 
-    float frequency = 10.0;
-    float amplitude = 0.05;
+    float frequency = 3000.0;
+    float amplitude = 0.1;
     float speed = 3.0;
 
     void main( void ) {
@@ -538,8 +538,8 @@ let grass_comp_fragment_source =
         vec2 tile = gl_FragCoord.xy;
 
         vec2 grassPos = randomVec2(tile, seed * 10.0);
-        
-        float grassPosY = texture(heightmap, ((chunk * 100.0) + (tile)) / 1000.0).r * 50.0;
+        vec4 heightmapsample = texture(heightmap, ((chunk * 100.0) + (tile)) / 1000.0);
+        float grassPosY = heightmapsample.g == 1.0 ? 1000.0 : heightmapsample.r * 50.0;
 
         float grassRotation = random(tile + seed);
         
@@ -662,14 +662,14 @@ let skyboxmesh = Mesh.box(gl);
 
 let heighttextureloaded = false;
 let heightimage = null;
-let heighttex = loadTexture(gl, "heightmap2.png", function(heightim) {
+let heighttex = loadTexture(gl, "ground/heightmap3.png", function(heightim) {
     heighttextureloaded = true;
     heightimage = heightim;
 });
 const heightmapmeshes = new HashMap2D();
 
 let perspective = Mat4.perspective(Math.PI / 2, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000);
-camera = new Camera(new Vec4(0, 0, 2, 0), 0, 0, 0, perspective);
+camera = new Camera(new Vec4(-373, 55, 303, 1), 0, 0, 0.5, perspective);
 camera.getMatrix();
 camera.calcFrustum();
 
@@ -722,7 +722,7 @@ lightsBuffer.bindToShader(grassshader, "Lights");
 Input.setMouseHandler(handleMouse);
 Input.init();
 
-let chunkManager = new ChunkManager(100, 0, 5, 3, 2.5, camera);
+let chunkManager = new ChunkManager(100, 0, 50, 3, 2.5, camera);
 
 let doneload = false;
 let tex = loadTexture(gl, "metal_scale.png", function() { doneload = true; });
@@ -814,7 +814,7 @@ function renderObjects(time_delta, now, depthonly) {
         sphere.renderInstanced(gl, lightshader.getProgram(), numLights);
 
         watershader.use();
-        model = Mat4.translation(20.0, 10.0, 0.0).mul(Mat4.scale(10, 10, 10));
+        model = Mat4.translation(-470.0, 12.0, 400.0).mul(Mat4.scale(130, 10, 130));
         MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
         gl.uniform1f(gl.getUniformLocation(watershader.getProgram(), "time"), now / 1000);
         gl.uniform3f( gl.getUniformLocation( watershader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
@@ -928,7 +928,7 @@ function render(now) {
     if (Input.getKeyState('4')) { camera.setRPY(0, 0, 0.75); camera.setPosition(new Vec4(0,10,0)); }
     if (Input.getKeyState('5')) { camera.setRPY(0, 0.25, 0); camera.setPosition(new Vec4(0,10,0)); }
     if (Input.getKeyState('6')) { camera.setRPY(0, 0.75, 0); camera.setPosition(new Vec4(0,10,0)); }
-    
+
     //depth pass
     gl.bindTexture( gl.TEXTURE_2D, null );
 
