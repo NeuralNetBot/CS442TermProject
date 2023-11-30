@@ -65,7 +65,7 @@ class ChunkManager {
         let cameraZ = this.camera.getPosition().z;
         let cameraChunkX = Math.floor(cameraX / this.chunksize);
         let cameraChunkZ = Math.floor(cameraZ / this.chunksize);
-        vischunks.push([cameraChunkX, cameraChunkZ, 0]);
+        vischunks.push([cameraChunkX, cameraChunkZ, 0]);//force add the chunk were in
         this.vischunks = vischunks;
     }
 

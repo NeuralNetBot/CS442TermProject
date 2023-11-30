@@ -63,9 +63,13 @@ class Camera {
         this.frustumplanes[5] = new Vec4(this.matrix.rc(3, 0) - this.matrix.rc(2, 0), this.matrix.rc(3, 1) - this.matrix.rc(2, 1), this.matrix.rc(3, 2) - this.matrix.rc(2, 2), this.matrix.rc(3, 3) - this.matrix.rc(2, 3) - 0.1);
     }
 
-    getMatrix() {
-
-        let cameramat = Mat4.translation(this.position.x, this.position.y, this.position.z).mul(this.rot);
+    getMatrix(translate=true) {
+        let cameramat = null;
+        if(translate) {
+            cameramat = Mat4.translation(this.position.x, this.position.y, this.position.z).mul(this.rot);
+        } else {
+            cameramat = this.rot;
+        }
         let view = cameramat.inverse();
         this.matrix = this.perspective.mul(view);
         return this.matrix;

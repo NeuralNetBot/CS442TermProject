@@ -765,7 +765,7 @@ function resizeCanvas() {
     gl.viewport(0, 0, canvas.width, canvas.height);
 }
 
-function renderObjects(now, depthonly) {
+function renderObjects(time_delta, now, depthonly) {
     let currentshader = mainshader.getProgram();
     if(depthonly) {
         currentshader = depthshader.getProgram();
@@ -776,7 +776,6 @@ function renderObjects(now, depthonly) {
     let cameramat = camera.getMatrix();
     let viewpos = camera.getPosition();
     gl.uniform3f( gl.getUniformLocation( currentshader, "view_pos" ), viewpos.x, viewpos.y, viewpos.z );
-    
     MVPBuffer.bind();
     MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
     MVPBuffer.setData(cameramat.asColumnMajorFloat32Array(), 4 * 16);
@@ -811,10 +810,6 @@ function renderObjects(now, depthonly) {
 
     //render objects that we dont want to be included in our depth information
     if(!depthonly) {
-        cubemapshader.use();
-        gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube_map_texture);
-        skyboxmesh.render(gl, cubemapshader.getProgram());
-
         lightshader.use();
         sphere.renderInstanced(gl, lightshader.getProgram(), numLights);
 
@@ -824,6 +819,54 @@ function renderObjects(now, depthonly) {
         gl.uniform1f(gl.getUniformLocation(watershader.getProgram(), "time"), now / 1000);
         gl.uniform3f( gl.getUniformLocation( watershader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
         planemesh.render(gl, watershader.getProgram());
+
+        //grass
+        grassshader.use();
+        gl.uniform3f( gl.getUniformLocation( grassshader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
+        windPosx += windspeed * Math.cos(windDir) * time_delta;
+        windPosy += windspeed * Math.sin(windDir) * time_delta;
+        gl.uniform2f(gl.getUniformLocation(grassshader.getProgram(), 'windDir'), windPosx, windPosy);
+
+        gl.disable( gl.CULL_FACE );
+        camera.calcFrustum();
+        chunkManager.updateVisibleChunks();
+        let vischunks = chunkManager.getVisibleChunks();
+        vischunks.forEach(chunk => {
+            grass_comp_shader.use();
+            gl.uniform1f( gl.getUniformLocation( grass_comp_shader.getProgram(), "seed" ), chunk[0] * 10 + chunk[1] );
+            gl.uniform2f( gl.getUniformLocation( grass_comp_shader.getProgram(), "chunk" ), chunk[0], chunk[1] );
+            gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, heighttex);
+            grass_comp_shader.dispatch();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            grassshader.use();
+            gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null);
+            gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, null);
+            gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, null);
+            let grasstextures = grass_comp_shader.getRenderTextures();
+            gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, wind_noise_texture);
+            gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, grasstextures[0]);
+            gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, grasstextures[1]);
+            
+            gl.uniform3f( gl.getUniformLocation( grassshader.getProgram(), "positionoffset" ), chunk[0] * 100, 0, chunk[1] * 100 );
+            if(chunk[2] == 1) {
+                grassmeshlod1.renderInstanced(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
+            } else {
+                grassmesh.renderInstanced(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
+            }
+            
+        });
+        
+        gl.enable( gl.CULL_FACE );
+        gl.activeTexture(gl.TEXTURE0);
+
+        //skybox
+        cameramat = camera.getMatrix(false);
+        MVPBuffer.setData(cameramat.asColumnMajorFloat32Array(), 4 * 16);
+
+        cubemapshader.use();
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube_map_texture);
+        skyboxmesh.render(gl, cubemapshader.getProgram());
     }
     
 }
@@ -894,7 +937,7 @@ function render(now) {
     
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     depthshader.use();
-    renderObjects(now, true);
+    renderObjects(time_delta, now, true);
 
     gl.bindTexture( gl.TEXTURE_2D, depthFrameBufferInfo.texture);
     gl.useProgram(light_cull_shader.getProgram());
@@ -915,46 +958,7 @@ function render(now) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     mainshader.use();
     gl.uniform2f( gl.getUniformLocation( mainshader.getProgram(), "screen_size" ), canvas.width, canvas.height );
-    renderObjects(now, false);
+    renderObjects(time_delta, now, false);
 
-    grassshader.use();
-    gl.uniform3f( gl.getUniformLocation( grassshader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
-    windPosx += windspeed * Math.cos(windDir) * time_delta;
-    windPosy += windspeed * Math.sin(windDir) * time_delta;
-    gl.uniform2f(gl.getUniformLocation(grassshader.getProgram(), 'windDir'), windPosx, windPosy);
-
-    //grass
-    gl.disable( gl.CULL_FACE );
-    camera.calcFrustum();
-    chunkManager.updateVisibleChunks();
-    let vischunks = chunkManager.getVisibleChunks();
-    vischunks.forEach(chunk => {
-        grass_comp_shader.use();
-        gl.uniform1f( gl.getUniformLocation( grass_comp_shader.getProgram(), "seed" ), chunk[0] * 10 + chunk[1] );
-        gl.uniform2f( gl.getUniformLocation( grass_comp_shader.getProgram(), "chunk" ), chunk[0], chunk[1] );
-        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, heighttex);
-        grass_comp_shader.dispatch();
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.viewport(0, 0, canvas.width, canvas.height);
-        grassshader.use();
-        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null);
-        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, null);
-        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, null);
-        let grasstextures = grass_comp_shader.getRenderTextures();
-        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, wind_noise_texture);
-        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, grasstextures[0]);
-        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, grasstextures[1]);
-        
-        gl.uniform3f( gl.getUniformLocation( grassshader.getProgram(), "positionoffset" ), chunk[0] * 100, 0, chunk[1] * 100 );
-        if(chunk[2] == 1) {
-            grassmeshlod1.renderInstanced(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
-        } else {
-            grassmesh.renderInstanced(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
-        }
-        
-    });
-    
-    gl.enable( gl.CULL_FACE );
-    gl.activeTexture(gl.TEXTURE0);
     requestAnimationFrame(render);
 }
