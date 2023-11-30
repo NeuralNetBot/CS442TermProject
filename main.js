@@ -257,7 +257,7 @@ let water_fragment_source =
     void main( void ) {
         vec3 I = normalize(v_pos - camera_position);
         vec3 R = reflect(I, normalize(v_normal));
-
+        R.xy = -R.xy;
         t_f_color = vec4(texture(skybox, R).rgb, 1.0) * vec4(0.3, 0.56, 0.95, alpha) * vec4(calcLight(-light_direction, sun_color), 1.0);
     } `;
 
