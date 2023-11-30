@@ -231,7 +231,7 @@ let water_fragment_source =
     float mat_ambient = 0.25;
     float mat_diffuse = 1.0;
     float mat_specular = 2.0;
-    float mat_shininess = 4.0;
+    float mat_shininess = 32.0;
     uniform vec3 camera_position;
 
     uniform samplerCube skybox;
@@ -814,7 +814,7 @@ function renderObjects(time_delta, now, depthonly) {
         sphere.renderInstanced(gl, lightshader.getProgram(), numLights);
 
         watershader.use();
-        model = Mat4.translation(-470.0, 12.0, 400.0).mul(Mat4.scale(130, 10, 130));
+        model = Mat4.translation(-480.0, 12.0, 400.0).mul(Mat4.scale(130, 10, 130));
         MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
         gl.uniform1f(gl.getUniformLocation(watershader.getProgram(), "time"), now / 1000);
         gl.uniform3f( gl.getUniformLocation( watershader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
