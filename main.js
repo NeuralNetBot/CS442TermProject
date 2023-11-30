@@ -858,9 +858,6 @@ function renderObjects(time_delta, now, depthonly) {
 
     //render objects that we dont want to be included in our depth information
     if(!depthonly) {
-        cubemapshader.use();
-        gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube_map_texture);
-        skyboxmesh.render(gl, cubemapshader.getProgram());
 
         mainshader.use();
         MVPBuffer.setData(node1.matrix.asColumnMajorFloat32Array(), 0);
