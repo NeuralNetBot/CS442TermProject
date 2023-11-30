@@ -55,16 +55,12 @@ class Camera {
     }
     
     calcFrustum() {
-        this.frustumplanes[0] = new Vec4(this.matrix.rc(3, 0) + this.matrix.rc(0, 0), this.matrix.rc(3, 1) + this.matrix.rc(0, 1), this.matrix.rc(3, 2) + this.matrix.rc(0, 2), this.matrix.rc(3, 3) + this.matrix.rc(0, 3));
-        this.frustumplanes[1] = new Vec4(this.matrix.rc(3, 0) - this.matrix.rc(0, 0), this.matrix.rc(3, 1) - this.matrix.rc(0, 1), this.matrix.rc(3, 2) - this.matrix.rc(0, 2), this.matrix.rc(3, 3) - this.matrix.rc(0, 3));
-        this.frustumplanes[2] = new Vec4(this.matrix.rc(3, 0) + this.matrix.rc(1, 0), this.matrix.rc(3, 1) + this.matrix.rc(1, 1), this.matrix.rc(3, 2) + this.matrix.rc(1, 2), this.matrix.rc(3, 3) + this.matrix.rc(1, 3));
-        this.frustumplanes[3] = new Vec4(this.matrix.rc(3, 0) - this.matrix.rc(1, 0), this.matrix.rc(3, 1) - this.matrix.rc(1, 1), this.matrix.rc(3, 2) - this.matrix.rc(1, 2), this.matrix.rc(3, 3) - this.matrix.rc(1, 3));
-        this.frustumplanes[4] = new Vec4(this.matrix.rc(3, 0) + this.matrix.rc(2, 0), this.matrix.rc(3, 1) + this.matrix.rc(2, 1), this.matrix.rc(3, 2) + this.matrix.rc(2, 2), this.matrix.rc(3, 3) + this.matrix.rc(2, 3));
-        this.frustumplanes[5] = new Vec4(this.matrix.rc(3, 0) - this.matrix.rc(2, 0), this.matrix.rc(3, 1) - this.matrix.rc(2, 1), this.matrix.rc(3, 2) - this.matrix.rc(2, 2), this.matrix.rc(3, 3) - this.matrix.rc(2, 3));
-        this.frustumplanes.forEach(plane => {
-            let len = plane.length();
-            plane.scaled(1.0 / len);
-        });
+        this.frustumplanes[0] = new Vec4(this.matrix.rc(3, 0) + this.matrix.rc(0, 0), this.matrix.rc(3, 1) + this.matrix.rc(0, 1), this.matrix.rc(3, 2) + this.matrix.rc(0, 2), this.matrix.rc(3, 3) + this.matrix.rc(0, 3) + 0.1);
+        this.frustumplanes[1] = new Vec4(this.matrix.rc(3, 0) - this.matrix.rc(0, 0), this.matrix.rc(3, 1) - this.matrix.rc(0, 1), this.matrix.rc(3, 2) - this.matrix.rc(0, 2), this.matrix.rc(3, 3) - this.matrix.rc(0, 3) - 0.1);
+        this.frustumplanes[2] = new Vec4(this.matrix.rc(3, 0) + this.matrix.rc(1, 0), this.matrix.rc(3, 1) + this.matrix.rc(1, 1), this.matrix.rc(3, 2) + this.matrix.rc(1, 2), this.matrix.rc(3, 3) + this.matrix.rc(1, 3) + 0.1);
+        this.frustumplanes[3] = new Vec4(this.matrix.rc(3, 0) - this.matrix.rc(1, 0), this.matrix.rc(3, 1) - this.matrix.rc(1, 1), this.matrix.rc(3, 2) - this.matrix.rc(1, 2), this.matrix.rc(3, 3) - this.matrix.rc(1, 3) - 0.1);
+        this.frustumplanes[4] = new Vec4(this.matrix.rc(3, 0) + this.matrix.rc(2, 0), this.matrix.rc(3, 1) + this.matrix.rc(2, 1), this.matrix.rc(3, 2) + this.matrix.rc(2, 2), this.matrix.rc(3, 3) + this.matrix.rc(2, 3) + 0.1);
+        this.frustumplanes[5] = new Vec4(this.matrix.rc(3, 0) - this.matrix.rc(2, 0), this.matrix.rc(3, 1) - this.matrix.rc(2, 1), this.matrix.rc(3, 2) - this.matrix.rc(2, 2), this.matrix.rc(3, 3) - this.matrix.rc(2, 3) - 0.1);
     }
 
     getMatrix() {
