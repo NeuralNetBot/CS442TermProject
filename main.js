@@ -592,7 +592,7 @@ let grass_draw_vertex_source =
         float angle = ZROT.y * 6.28;
         float s = sin(-angle);
         float c = cos(-angle);
-        vec3 newpos = vec3(position.x * c - position.z * s, position.y, position.x * s + position.z * c);
+        vec3 newpos = vec3(2.0 * position.x * c - 2.0 * position.z * s, 2.0 * position.y, 2.0 * position.x * s + 2.0 * position.z * c);
 
         vec3 noise3d = texture(noise, (grassIndex / grassSize) + windDir).xyz;
         vec2 grasswindoffsetxz = (noise3d.xy - 0.5) * position.y * position.y / 10.0;
