@@ -577,6 +577,7 @@ let grass_draw_vertex_source =
     uniform vec2 grassSize;
     uniform vec2 windDir;
     uniform vec3 positionoffset;
+    uniform float grasslength;
 
     out vec3 aPosition;
     out vec3 aNormal;
@@ -592,7 +593,7 @@ let grass_draw_vertex_source =
         float angle = ZROT.y * 6.28;
         float s = sin(-angle);
         float c = cos(-angle);
-        vec3 newpos = vec3(2.0 * position.x * c - 2.0 * position.z * s, 2.0 * position.y, 2.0 * position.x * s + 2.0 * position.z * c);
+        vec3 newpos = vec3(grasslength * position.x * c - grasslength * position.z * s, grasslength * position.y, grasslength * position.x * s + grasslength * position.z * c);
 
         vec3 noise3d = texture(noise, (grassIndex / grassSize) + windDir).xyz;
         vec2 grasswindoffsetxz = (noise3d.xy - 0.5) * position.y * position.y / 10.0;
@@ -747,6 +748,7 @@ let windDir = 5*Math.PI/4;
 let windspeed = 0.1;
 let windPosx = 0.0;
 let windPosy = 0.0;
+let grasslength = 1.0;
 
 let cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bottom.jpg', 'front.jpg', 'back.jpg', function() { });
 let new_cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bottom.jpg', 'front.jpg', 'back.jpg', function(index) { cubemaploaded[index] = true; console.log(index); });
@@ -886,6 +888,7 @@ function renderObjects(time_delta, now, depthonly) {
         windPosx += windspeed * Math.cos(windDir) * time_delta;
         windPosy += windspeed * Math.sin(windDir) * time_delta;
         gl.uniform2f(gl.getUniformLocation(grassshader.getProgram(), 'windDir'), windPosx, windPosy);
+        gl.uniform1f(gl.getUniformLocation(grassshader.getProgram(), 'grasslength'), grasslength);
 
         gl.disable( gl.CULL_FACE );
         camera.calcFrustum();
@@ -986,12 +989,8 @@ function render(now) {
     if (Input.getKeyState('t')) { Input.lockMouse(); }
     if (Input.getKeyState('y')) { Input.unlockMouse(); }
 
-    if (Input.getKeyState('1')) { camera.setRPY(0, 0, 0);    camera.setPosition(new Vec4(0,10,0)); }
-    if (Input.getKeyState('2')) { camera.setRPY(0, 0, 0.25); camera.setPosition(new Vec4(0,10,0)); }
-    if (Input.getKeyState('3')) { camera.setRPY(0, 0, 0.5);  camera.setPosition(new Vec4(0,10,0)); }
-    if (Input.getKeyState('4')) { camera.setRPY(0, 0, 0.75); camera.setPosition(new Vec4(0,10,0)); }
-    if (Input.getKeyState('5')) { camera.setRPY(0, 0.25, 0); camera.setPosition(new Vec4(0,10,0)); }
-    if (Input.getKeyState('6')) { camera.setRPY(0, 0.75, 0); camera.setPosition(new Vec4(0,10,0)); }
+    if (Input.getKeyState('1')) { grasslength += 0.01; }
+    if (Input.getKeyState('2')) { grasslength -= 0.01; }
 
     //depth pass
     gl.bindTexture( gl.TEXTURE_2D, null );
