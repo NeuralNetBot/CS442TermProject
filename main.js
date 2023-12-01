@@ -58,11 +58,15 @@ let fragment_source =
     in vec3 aNormal;
     in vec2 aUV;
     
-    //point lights
     uniform Lights {
         highp int num_lights;
         vec3 light_positions[64];
         vec4 light_colors[64];//w radius of light
+        vec3 sun_direction;
+        vec3 sun_color;
+        vec3 spotlight_position;
+        vec4 spotlight_color;//w component is angle limit
+        vec3 spotlight_direction;
     } lights;
     
     uniform sampler2D tex_0;
@@ -74,9 +78,6 @@ let fragment_source =
     uniform sampler2D lightData5;
     uniform sampler2D lightData6;
     uniform sampler2D lightData7;
-    
-    uniform vec3 sun_direction;
-    uniform vec3 sun_color;
 
     uniform vec3 view_pos;
     uniform vec2 screen_size;
@@ -117,9 +118,9 @@ let fragment_source =
         unpackInts(texture(lightData6, tile), tilelightdata[12], tilelightdata[13]);
         unpackInts(texture(lightData7, tile), tilelightdata[14], tilelightdata[15]);
 
-        vec3 ambient = ambient * sun_color;
+        vec3 ambient = ambient * lights.sun_color;
 
-        vec3 final = ambient + calcLight(-sun_direction, sun_color, aNormal);
+        vec3 final = ambient + calcLight(-lights.sun_direction, lights.sun_color, aNormal);
         
         for(int i = 0; i < MAX_LIGHTS_PER_TILE; i++)
         {
@@ -330,6 +331,11 @@ let light_draw_vertex_source =
         highp int num_lights;
         vec3 light_positions[64];
         vec4 light_colors[64]; 
+        vec3 sun_direction;
+        vec3 sun_color;
+        vec3 spotlight_position;
+        vec4 spotlight_color;//w component is angle limit
+        vec3 spotlight_direction;
     } lights;
     
     out vec3 aNormal;
@@ -353,7 +359,12 @@ let light_draw_fragment_source =
     uniform Lights {
         highp int num_lights;
         vec3 light_positions[64];
-        vec4 light_colors[64]; 
+        vec4 light_colors[64];
+        vec3 sun_direction;
+        vec3 sun_color;
+        vec3 spotlight_position;
+        vec4 spotlight_color;//w component is angle limit
+        vec3 spotlight_direction;
     } lights;
 
     out vec4 f_color;
@@ -401,7 +412,12 @@ let light_culling_comp_fragment_source =
     uniform Lights {
         highp int num_lights;
         vec3 light_positions[64];
-        vec4 light_colors[64]; 
+        vec4 light_colors[64];
+        vec3 sun_direction;
+        vec3 sun_color;
+        vec3 spotlight_position;
+        vec4 spotlight_color;//w component is angle limit
+        vec3 spotlight_direction;
     } lights;
 
     uniform vec3 view_pos;
@@ -615,7 +631,12 @@ let grass_draw_fragment_source =
     uniform Lights {
         highp int num_lights;
         vec3 light_positions[64];
-        vec4 light_colors[64]; 
+        vec4 light_colors[64];
+        vec3 sun_direction;
+        vec3 sun_color;
+        vec3 spotlight_position;
+        vec4 spotlight_color;//w component is angle limit
+        vec3 spotlight_direction;
     } lights;
 
     out vec4 f_color;
@@ -660,6 +681,8 @@ gl.enable( gl.DEPTH_TEST );
 
 let last_update = performance.now();
 
+let flashlightmesh = null;
+Mesh.from_obj_file( gl, "flashlight.obj", function(mesh) { flashlightmesh = mesh; } );
 let planemesh = null;
 Mesh.from_obj_file( gl, "plane.obj", function(mesh) { planemesh = mesh; } );
 let grassmesh = null;
@@ -690,8 +713,6 @@ camera.calcFrustum();
 let sundir = new Vec4(-1.0, -1.0, -1.0, 0.0);
 sundir = sundir.norm();
 mainshader.use();
-gl.uniform3f( gl.getUniformLocation( mainshader.getProgram(), "sun_direction" ), sundir.x, sundir.y, sundir.z);
-gl.uniform3f( gl.getUniformLocation( mainshader.getProgram(), "sun_color" ), 1.0, 1.0, 1.0 );
 
 gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "ambient" ), 0.01 );
 gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_diffuse" ), 0.3 );
@@ -724,10 +745,18 @@ MVPBuffer.bindToShader(grassshader, "MVP");
 const numLightsBytes = 4 * 4;           //glsl pads to vec4s
 const lightPositionsBytes = 64 * 4 * 4; //glsl pads to vec4s
 const lightColorsBytes = 64 * 4 * 4;    //glsl pads to vec4s
-let lightsBuffer = new GPUBuffer(gl, gl.UNIFORM_BUFFER, numLightsBytes + lightPositionsBytes + lightColorsBytes, 1);
+const sunPosBytes = 4 * 4;
+const sunColorBytes = 4 * 4;
+const dirLightPosBytes = 4 * 4;
+const dirLightColorBytes = 4 * 4;
+const dirLightDirBytes = 4 * 4;
+let lightsBuffer = new GPUBuffer(gl, gl.UNIFORM_BUFFER, numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes + dirLightColorBytes + dirLightDirBytes, 1);
 lightsBuffer.setData(numLights, 0);
 lightsBuffer.setData(lightPositions, numLightsBytes);
 lightsBuffer.setData(lightColors, numLightsBytes + lightPositionsBytes);
+lightsBuffer.setData(new Float32Array([sundir.x, sundir.y, sundir.z]), numLightsBytes + lightPositionsBytes + lightColorsBytes)
+lightsBuffer.setData(new Float32Array([1,1,1]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes)
+
 lightsBuffer.bindToShader(mainshader, "Lights");
 lightsBuffer.bindToShader(lightshader, "Lights");
 lightsBuffer.bindToShader(light_cull_shader, "Lights");
@@ -744,6 +773,7 @@ let tex = loadTexture(gl, "metal_scale.png", function() { doneload = true; });
 
 let groundtex = loadTexture(gl, "ground/brown_mud_leaves_diffuse.jpg", function() { });
 let wind_noise_texture = loadTexture(gl, "grass/noise.png", function() {});
+let flashlight_texture = loadTexture(gl, "flashlight.png", function() {});
 let windDir = 5*Math.PI/4;
 let windspeed = 0.1;
 let windPosx = 0.0;
@@ -755,9 +785,10 @@ let new_cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', '
 
 let renderCubeMap = false;
 let sceneGraph = new SceneGraph();
-let node3 = new Node(null, Mat4.translation(0.0, 0.0, -5.0));
-let node2 = new Node(null, Mat4.translation(0.0, 0.0, -5.0), [node3]);
-let node1 = new Node(sceneGraph.getRoot(), Mat4.translation(0, 0, 0), [node2]);
+let flashlightNode = new Node(null, Mat4.scale(0.1, 0.1, 0.1).mul(Mat4.translation(4, -4, -5).mul(Mat4.rotation_yz(0.25).mul(Mat4.rotation_xz(0.25)))), []);
+let cameraNode = new Node(sceneGraph.getRoot(), camera.getView(), [flashlightNode]);
+
+
 sceneGraph.update();
 gl.enable( gl.BLEND );
 gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
@@ -862,14 +893,10 @@ function renderObjects(time_delta, now, depthonly) {
     if(!depthonly) {
 
         mainshader.use();
-        MVPBuffer.setData(node1.matrix.asColumnMajorFloat32Array(), 0);
-        sphere.render(gl, mainshader.getProgram());
+        gl.bindTexture( gl.TEXTURE_2D, flashlight_texture );
+        MVPBuffer.setData(flashlightNode.matrix.asColumnMajorFloat32Array(), 0);
+        flashlightmesh.render(gl, mainshader.getProgram());
 
-        MVPBuffer.setData(node2.matrix.asColumnMajorFloat32Array(), 0);
-        sphere.render(gl, mainshader.getProgram());
-
-        MVPBuffer.setData(node3.matrix.asColumnMajorFloat32Array(), 0);
-        sphere.render(gl, mainshader.getProgram());
 
         lightshader.use();
         sphere.renderInstanced(gl, lightshader.getProgram(), numLights);
@@ -992,6 +1019,8 @@ function render(now) {
     if (Input.getKeyState('1')) { grasslength += 0.01; }
     if (Input.getKeyState('2')) { grasslength -= 0.01; }
 
+    cameraNode.offsetMatrix = camera.getView();
+    sceneGraph.update();
     //depth pass
     gl.bindTexture( gl.TEXTURE_2D, null );
 
