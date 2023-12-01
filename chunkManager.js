@@ -33,7 +33,8 @@ class ChunkManager {
             for (let z = chunkMinZ; z <= chunkMaxZ; z += 1) {
                 if(x == cameraChunkX && z == cameraChunkZ) continue;//ignore chunk were in
                 let lod = 0;
-                if (((x * x) - (cameraChunkX * cameraChunkX)) + ((z * z) - (cameraChunkZ * cameraChunkZ)) >= (this.lodDist * this.lodDist)) {
+                console.log(Math.sqrt(Math.pow(x - cameraChunkX, 2) + Math.pow(z - cameraChunkX, 2)));
+                if (Math.sqrt(Math.pow(x - cameraChunkX, 2) + Math.pow(z - cameraChunkZ, 2)) >=  this.lodDist) {
                     lod = 1;
                 }
                 chunksInRange.push([x, z, lod]);
