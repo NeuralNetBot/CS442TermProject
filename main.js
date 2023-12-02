@@ -701,8 +701,8 @@ let grass_draw_fragment_source =
         
         vec3 reflection = reflect(-light_direcion, surf_normal);
         vec3 view_dir = normalize(camera_position - aPosition);
-        float spec = pow(abs(dot(view_dir, reflection)), 0.1) * L;
-        vec3 specular = light_color * spec * 1.0;
+        float spec = pow(abs(dot(view_dir, reflection)), 1.0) * L;
+        vec3 specular = light_color * spec * 0.1;
     
         return diffuse + specular;
     }
