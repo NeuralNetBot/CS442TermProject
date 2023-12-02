@@ -642,6 +642,7 @@ let grass_draw_vertex_source =
         float s = sin(-angle);
         float c = cos(-angle);
         vec3 newpos = vec3(grasslength * position.x * c - grasslength * position.z * s, grasslength * position.y, grasslength * position.x * s + grasslength * position.z * c);
+        vec3 newnormal = vec3(grasslength * normal.x * c - grasslength * normal.z * s, grasslength * normal.y, grasslength * normal.x * s + grasslength * normal.z * c);
 
         vec3 noise3d = texture(noise, (grassIndex / grassSize) + windDir).xyz;
         vec2 grasswindoffsetxz = (noise3d.xy - 0.5) * position.y * position.y / 10.0;
@@ -650,7 +651,7 @@ let grass_draw_vertex_source =
 
         vec3 finalpos = positionoffset + newpos + grassPos.xyz + vec3(grassIndex.x, 0.0, grassIndex.y);
         aPosition = finalpos;
-        aNormal = normal;
+        aNormal = newnormal;
         aUV = uv;
         gl_Position = (mvp.view_projection) * vec4(finalpos, 1.0 );
     }
@@ -695,12 +696,12 @@ let grass_draw_fragment_source =
 
     vec3 calcLight(vec3 light_direcion, vec3 light_color, vec3 surf_normal)
     {
-        float L = max(dot(surf_normal, light_direcion), 0.0);
+        float L = abs(dot(surf_normal, light_direcion));
         vec3 diffuse = 0.3 * light_color * L;
         
         vec3 reflection = reflect(-light_direcion, surf_normal);
         vec3 view_dir = normalize(camera_position - aPosition);
-        float spec = pow(max(dot(view_dir, reflection), 0.0), 0.1) * L;
+        float spec = pow(abs(dot(view_dir, reflection)), 0.1) * L;
         vec3 specular = light_color * spec * 1.0;
     
         return diffuse + specular;
@@ -709,15 +710,12 @@ let grass_draw_fragment_source =
     void main( void )
     {
         vec3 spotlightfragdir = normalize(lights.spotlight_position - aPosition);
-        vec3 dpdx = dFdx(aPosition);
-        vec3 dpdy = dFdy(aPosition);
-        vec3 normal = normalize(cross(dpdx, dpdy));
 
         float dist = length(lights.spotlight_position - aPosition);
         float atten = 1.0 / (0.1 * dist);
 
         vec3 ambient = 0.01 * lights.sun_color;
-        vec3 final = ambient + calcLight(spotlightfragdir, lights.spotlight_color.rgb, normal) * atten * calcSpotlightAttenuation(spotlightfragdir, lights.spotlight_direction, lights.spotlight_color.w);
+        vec3 final = ambient + calcLight(spotlightfragdir, lights.spotlight_color.rgb, aNormal) * atten * calcSpotlightAttenuation(spotlightfragdir, lights.spotlight_direction, lights.spotlight_color.w);
 
         f_color = vec4(mix(vec3(0.0, 0.1, 0.0), vec3(119.0/255.0, 156.0/255.0, 75.0/255.0), aPosition.y / 10.0) * final, 1.0);
     }
