@@ -58,11 +58,15 @@ let fragment_source =
     in vec3 aNormal;
     in vec2 aUV;
     
-    //point lights
     uniform Lights {
         highp int num_lights;
         vec3 light_positions[64];
         vec4 light_colors[64];//w radius of light
+        vec3 sun_direction;
+        vec3 sun_color;
+        vec3 spotlight_position;
+        vec4 spotlight_color;//w component is angle limit
+        vec3 spotlight_direction;
     } lights;
     
     uniform sampler2D tex_0;
@@ -74,9 +78,6 @@ let fragment_source =
     uniform sampler2D lightData5;
     uniform sampler2D lightData6;
     uniform sampler2D lightData7;
-    
-    uniform vec3 sun_direction;
-    uniform vec3 sun_color;
 
     uniform vec3 view_pos;
     uniform vec2 screen_size;
@@ -89,6 +90,18 @@ let fragment_source =
     void unpackInts(vec4 packedValues, out int a, out int b) {
         a = int(packedValues.r * float(lights.num_lights));
         b = int(packedValues.g * float(lights.num_lights));
+    }
+
+    float calcSpotlightAttenuation(vec3 light_direction, vec3 spotlight_dir, float cutoff_angle) {
+        float cosAngle = dot(normalize(-light_direction), normalize(spotlight_dir));
+        float spotlightCutoff = cos(cutoff_angle);
+        
+        if (cosAngle > spotlightCutoff) {
+            float spotEffect = smoothstep(spotlightCutoff, spotlightCutoff + 0.1, cosAngle);
+            return spotEffect * 3.0;
+        } else {
+            return 0.0;
+        }
     }
 
     vec3 calcLight(vec3 light_direcion, vec3 light_color, vec3 surf_normal)
@@ -117,10 +130,12 @@ let fragment_source =
         unpackInts(texture(lightData6, tile), tilelightdata[12], tilelightdata[13]);
         unpackInts(texture(lightData7, tile), tilelightdata[14], tilelightdata[15]);
 
-        vec3 ambient = ambient * sun_color;
+        vec3 ambient = ambient * lights.sun_color;
 
-        vec3 final = ambient + calcLight(-sun_direction, sun_color, aNormal);
-        
+        vec3 final = ambient + calcLight(-lights.sun_direction, lights.sun_color, aNormal);
+        vec3 spotlightfragdir = normalize(lights.spotlight_position - aPosition);
+        final += calcLight(spotlightfragdir, lights.spotlight_color.rgb, aNormal) * calcSpotlightAttenuation(spotlightfragdir, lights.spotlight_direction, lights.spotlight_color.w);
+
         for(int i = 0; i < MAX_LIGHTS_PER_TILE; i++)
         {
             if(tilelightdata[i] >= lights.num_lights) {
@@ -237,24 +252,37 @@ let water_fragment_source =
 
     uniform samplerCube skybox;
 
-    vec3 sun_color = vec3(1.0, 1.0, 1.0);
-    vec3 light_direction = normalize(vec3(-1.0, -1.0, -1.0));
+    uniform Lights {
+        highp int num_lights;
+        vec3 light_positions[64];
+        vec4 light_colors[64];//w radius of light
+        vec3 sun_direction;
+        vec3 sun_color;
+        vec3 spotlight_position;
+        vec4 spotlight_color;//w component is angle limit
+        vec3 spotlight_direction;
+    } lights;
 
+    float calcSpotlightAttenuation(vec3 light_direction, vec3 spotlight_dir, float cutoff_angle) {
+        float cosAngle = dot(normalize(-light_direction), normalize(spotlight_dir));
+        float spotlightCutoff = cos(cutoff_angle);
+        
+        if (cosAngle > spotlightCutoff) {
+            float spotEffect = smoothstep(spotlightCutoff, spotlightCutoff + 0.1, cosAngle);
+            return spotEffect * 3.0;
+        } else {
+            return 0.0;
+        }
+    }
 
-    vec3 calcLight(vec3 light_direcion, vec3 light_color)
+    vec3 calcLight(vec3 light_direction, vec3 light_color)
     {
-        float L = max(dot(v_normal, light_direcion), 0.0);
+        float L = max(dot(v_normal, light_direction), 0.0);
         vec3 diffuse = mat_diffuse * light_color * L;
 
         vec3 halfway = normalize(light_direction + camera_position);
-
-        float fresnelFactor = dot(halfway, camera_position);
-        fresnelFactor = max(fresnelFactor, 0.0);
-        fresnelFactor = 1.0 - fresnelFactor;
-        fresnelFactor = pow(fresnelFactor, fresnelPower);
-        alpha = mix(alpha, 1.0, fresnelFactor);
         
-        vec3 reflection = reflect(-light_direcion, v_normal);
+        vec3 reflection = reflect(-light_direction, v_normal);
         vec3 view_dir = normalize(camera_position - v_pos);
         float spec = pow(max(dot(view_dir, halfway), 0.0), mat_shininess) * L;
         vec3 specular = light_color * spec * mat_specular;
@@ -267,7 +295,12 @@ let water_fragment_source =
         vec3 I = normalize(v_pos - camera_position);
         vec3 R = reflect(I, normalize(v_normal));
         R.xy = -R.xy;
-        t_f_color = vec4(texture(skybox, R).rgb, 1.0) * vec4(0.3, 0.56, 0.95, alpha) * vec4(calcLight(-light_direction, sun_color), 1.0);
+
+        vec3 final = calcLight(-lights.sun_direction, lights.sun_color);
+        vec3 spotlightfragdir = normalize(lights.spotlight_position - v_pos);
+        final += calcLight(spotlightfragdir, lights.spotlight_color.rgb) * calcSpotlightAttenuation(spotlightfragdir, lights.spotlight_direction, lights.spotlight_color.w);
+
+        t_f_color = vec4(texture(skybox, R).rgb, 1.0) * vec4(0.3, 0.56, 0.95, alpha) * vec4(final, 1.0);
     } `;
 
 let depth_vertex_source = 
@@ -330,6 +363,11 @@ let light_draw_vertex_source =
         highp int num_lights;
         vec3 light_positions[64];
         vec4 light_colors[64]; 
+        vec3 sun_direction;
+        vec3 sun_color;
+        vec3 spotlight_position;
+        vec4 spotlight_color;//w component is angle limit
+        vec3 spotlight_direction;
     } lights;
     
     out vec3 aNormal;
@@ -353,7 +391,12 @@ let light_draw_fragment_source =
     uniform Lights {
         highp int num_lights;
         vec3 light_positions[64];
-        vec4 light_colors[64]; 
+        vec4 light_colors[64];
+        vec3 sun_direction;
+        vec3 sun_color;
+        vec3 spotlight_position;
+        vec4 spotlight_color;//w component is angle limit
+        vec3 spotlight_direction;
     } lights;
 
     out vec4 f_color;
@@ -401,7 +444,12 @@ let light_culling_comp_fragment_source =
     uniform Lights {
         highp int num_lights;
         vec3 light_positions[64];
-        vec4 light_colors[64]; 
+        vec4 light_colors[64];
+        vec3 sun_direction;
+        vec3 sun_color;
+        vec3 spotlight_position;
+        vec4 spotlight_color;//w component is angle limit
+        vec3 spotlight_direction;
     } lights;
 
     uniform vec3 view_pos;
@@ -577,6 +625,7 @@ let grass_draw_vertex_source =
     uniform vec2 grassSize;
     uniform vec2 windDir;
     uniform vec3 positionoffset;
+    uniform float grasslength;
 
     out vec3 aPosition;
     out vec3 aNormal;
@@ -592,17 +641,19 @@ let grass_draw_vertex_source =
         float angle = ZROT.y * 6.28;
         float s = sin(-angle);
         float c = cos(-angle);
-        vec3 newpos = vec3(position.x * c - position.z * s, position.y, position.x * s + position.z * c);
+        vec3 newpos = vec3(grasslength * position.x * c - grasslength * position.z * s, grasslength * position.y, grasslength * position.x * s + grasslength * position.z * c);
+        vec3 newnormal = vec3(grasslength * normal.x * c - grasslength * normal.z * s, grasslength * normal.y, grasslength * normal.x * s + grasslength * normal.z * c);
 
         vec3 noise3d = texture(noise, (grassIndex / grassSize) + windDir).xyz;
         vec2 grasswindoffsetxz = (noise3d.xy - 0.5) * position.y * position.y / 10.0;
         vec3 grasswindoffset = vec3(grasswindoffsetxz.x, -length(grasswindoffsetxz), grasswindoffsetxz.y);
         grassPos.xyz += grasswindoffset;
 
-        aPosition = position;
-        aNormal = normal;
+        vec3 finalpos = positionoffset + newpos + grassPos.xyz + vec3(grassIndex.x, 0.0, grassIndex.y);
+        aPosition = finalpos;
+        aNormal = newnormal;
         aUV = uv;
-        gl_Position = (mvp.view_projection) * vec4(positionoffset + newpos + grassPos.xyz + vec3(grassIndex.x, 0.0, grassIndex.y), 1.0 );
+        gl_Position = (mvp.view_projection) * vec4(finalpos, 1.0 );
     }
 `;
 
@@ -614,7 +665,12 @@ let grass_draw_fragment_source =
     uniform Lights {
         highp int num_lights;
         vec3 light_positions[64];
-        vec4 light_colors[64]; 
+        vec4 light_colors[64];
+        vec3 sun_direction;
+        vec3 sun_color;
+        vec3 spotlight_position;
+        vec4 spotlight_color;//w component is angle limit
+        vec3 spotlight_direction;
     } lights;
 
     out vec4 f_color;
@@ -626,9 +682,42 @@ let grass_draw_fragment_source =
 
     uniform vec3 camera_position;
 
+    float calcSpotlightAttenuation(vec3 light_direction, vec3 spotlight_dir, float cutoff_angle) {
+        float cosAngle = dot(normalize(-light_direction), normalize(spotlight_dir));
+        float spotlightCutoff = cos(cutoff_angle);
+        
+        if (cosAngle > spotlightCutoff) {
+            float spotEffect = smoothstep(spotlightCutoff, spotlightCutoff + 0.1, cosAngle);
+            return spotEffect * 1.5;
+        } else {
+            return 0.0;
+        }
+    }
+
+    vec3 calcLight(vec3 light_direcion, vec3 light_color, vec3 surf_normal)
+    {
+        float L = abs(dot(surf_normal, light_direcion));
+        vec3 diffuse = 0.3 * light_color * L;
+        
+        vec3 reflection = reflect(-light_direcion, surf_normal);
+        vec3 view_dir = normalize(camera_position - aPosition);
+        float spec = pow(abs(dot(view_dir, reflection)), 1.0) * L;
+        vec3 specular = light_color * spec * 0.1;
+    
+        return diffuse + specular;
+    }
+
     void main( void )
     {
-        f_color = vec4(mix(vec3(0.0, 0.0, 0.0), vec3(119.0/255.0, 156.0/255.0, 75.0/255.0), aPosition.y / 10.0), 1.0);
+        vec3 spotlightfragdir = normalize(lights.spotlight_position - aPosition);
+
+        float dist = length(lights.spotlight_position - aPosition);
+        float atten = 1.0 / (0.1 * dist);
+
+        vec3 ambient = 0.01 * lights.sun_color;
+        vec3 final = ambient + calcLight(spotlightfragdir, lights.spotlight_color.rgb, aNormal) * atten * calcSpotlightAttenuation(spotlightfragdir, lights.spotlight_direction, lights.spotlight_color.w);
+
+        f_color = vec4(mix(vec3(0.0, 0.1, 0.0), vec3(119.0/255.0, 156.0/255.0, 75.0/255.0), aPosition.y / 10.0) * final, 1.0);
     }
 `;
 
@@ -659,6 +748,8 @@ gl.enable( gl.DEPTH_TEST );
 
 let last_update = performance.now();
 
+let flashlightmesh = null;
+Mesh.from_obj_file( gl, "flashlight.obj", function(mesh) { flashlightmesh = mesh; } );
 let planemesh = null;
 Mesh.from_obj_file( gl, "plane.obj", function(mesh) { planemesh = mesh; } );
 let grassmesh = null;
@@ -689,8 +780,6 @@ camera.calcFrustum();
 let sundir = new Vec4(-1.0, -1.0, -1.0, 0.0);
 sundir = sundir.norm();
 mainshader.use();
-gl.uniform3f( gl.getUniformLocation( mainshader.getProgram(), "sun_direction" ), sundir.x, sundir.y, sundir.z);
-gl.uniform3f( gl.getUniformLocation( mainshader.getProgram(), "sun_color" ), 1.0, 1.0, 1.0 );
 
 gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "ambient" ), 0.01 );
 gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_diffuse" ), 0.3 );
@@ -723,14 +812,27 @@ MVPBuffer.bindToShader(grassshader, "MVP");
 const numLightsBytes = 4 * 4;           //glsl pads to vec4s
 const lightPositionsBytes = 64 * 4 * 4; //glsl pads to vec4s
 const lightColorsBytes = 64 * 4 * 4;    //glsl pads to vec4s
-let lightsBuffer = new GPUBuffer(gl, gl.UNIFORM_BUFFER, numLightsBytes + lightPositionsBytes + lightColorsBytes, 1);
+const sunPosBytes = 4 * 4;
+const sunColorBytes = 4 * 4;
+const dirLightPosBytes = 4 * 4;
+const dirLightColorBytes = 4 * 4;
+const dirLightDirBytes = 4 * 4;
+let lightsBuffer = new GPUBuffer(gl, gl.UNIFORM_BUFFER, numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes + dirLightColorBytes + dirLightDirBytes, 1);
 lightsBuffer.setData(numLights, 0);
 lightsBuffer.setData(lightPositions, numLightsBytes);
 lightsBuffer.setData(lightColors, numLightsBytes + lightPositionsBytes);
+lightsBuffer.setData(new Float32Array([sundir.x, sundir.y, sundir.z]), numLightsBytes + lightPositionsBytes + lightColorsBytes);
+lightsBuffer.setData(new Float32Array([1,1,1]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes);
+
+lightsBuffer.setData(new Float32Array([0,2,0]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes);//dirlightpos
+lightsBuffer.setData(new Float32Array([1,1,1,0.5]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes);//dirlightcolor
+lightsBuffer.setData(new Float32Array([0,0,-1]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes + dirLightColorBytes);//dirlightdir
+
 lightsBuffer.bindToShader(mainshader, "Lights");
 lightsBuffer.bindToShader(lightshader, "Lights");
 lightsBuffer.bindToShader(light_cull_shader, "Lights");
 lightsBuffer.bindToShader(grassshader, "Lights");
+lightsBuffer.bindToShader(watershader, "Lights");
 
 Input.setMouseHandler(handleMouse);
 Input.init();
@@ -743,19 +845,22 @@ let tex = loadTexture(gl, "metal_scale.png", function() { doneload = true; });
 
 let groundtex = loadTexture(gl, "ground/brown_mud_leaves_diffuse.jpg", function() { });
 let wind_noise_texture = loadTexture(gl, "grass/noise.png", function() {});
+let flashlight_texture = loadTexture(gl, "flashlight.png", function() {});
 let windDir = 5*Math.PI/4;
 let windspeed = 0.1;
 let windPosx = 0.0;
 let windPosy = 0.0;
+let grasslength = 1.0;
 
 let cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bottom.jpg', 'front.jpg', 'back.jpg', function() { });
 let new_cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', 'bottom.jpg', 'front.jpg', 'back.jpg', function(index) { cubemaploaded[index] = true; console.log(index); });
 
 let renderCubeMap = false;
 let sceneGraph = new SceneGraph();
-let node3 = new Node(null, Mat4.translation(0.0, 0.0, -5.0));
-let node2 = new Node(null, Mat4.translation(0.0, 0.0, -5.0), [node3]);
-let node1 = new Node(sceneGraph.getRoot(), Mat4.translation(0, 0, 0), [node2]);
+let flashlightNode = new Node(null, Mat4.scale(0.1, 0.1, 0.1).mul(Mat4.translation(4, -4, -5).mul(Mat4.rotation_yz(0.25).mul(Mat4.rotation_xz(0.25)))), []);
+let cameraNode = new Node(sceneGraph.getRoot(), camera.getView(), [flashlightNode]);
+
+
 sceneGraph.update();
 gl.enable( gl.BLEND );
 gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
@@ -860,14 +965,10 @@ function renderObjects(time_delta, now, depthonly) {
     if(!depthonly) {
 
         mainshader.use();
-        MVPBuffer.setData(node1.matrix.asColumnMajorFloat32Array(), 0);
-        sphere.render(gl, mainshader.getProgram());
+        gl.bindTexture( gl.TEXTURE_2D, flashlight_texture );
+        MVPBuffer.setData(flashlightNode.matrix.asColumnMajorFloat32Array(), 0);
+        flashlightmesh.render(gl, mainshader.getProgram());
 
-        MVPBuffer.setData(node2.matrix.asColumnMajorFloat32Array(), 0);
-        sphere.render(gl, mainshader.getProgram());
-
-        MVPBuffer.setData(node3.matrix.asColumnMajorFloat32Array(), 0);
-        sphere.render(gl, mainshader.getProgram());
 
         lightshader.use();
         sphere.renderInstanced(gl, lightshader.getProgram(), numLights);
@@ -886,6 +987,7 @@ function renderObjects(time_delta, now, depthonly) {
         windPosx += windspeed * Math.cos(windDir) * time_delta;
         windPosy += windspeed * Math.sin(windDir) * time_delta;
         gl.uniform2f(gl.getUniformLocation(grassshader.getProgram(), 'windDir'), windPosx, windPosy);
+        gl.uniform1f(gl.getUniformLocation(grassshader.getProgram(), 'grasslength'), grasslength);
 
         gl.disable( gl.CULL_FACE );
         camera.calcFrustum();
@@ -986,12 +1088,16 @@ function render(now) {
     if (Input.getKeyState('t')) { Input.lockMouse(); }
     if (Input.getKeyState('y')) { Input.unlockMouse(); }
 
-    if (Input.getKeyState('1')) { camera.setRPY(0, 0, 0);    camera.setPosition(new Vec4(0,10,0)); }
-    if (Input.getKeyState('2')) { camera.setRPY(0, 0, 0.25); camera.setPosition(new Vec4(0,10,0)); }
-    if (Input.getKeyState('3')) { camera.setRPY(0, 0, 0.5);  camera.setPosition(new Vec4(0,10,0)); }
-    if (Input.getKeyState('4')) { camera.setRPY(0, 0, 0.75); camera.setPosition(new Vec4(0,10,0)); }
-    if (Input.getKeyState('5')) { camera.setRPY(0, 0.25, 0); camera.setPosition(new Vec4(0,10,0)); }
-    if (Input.getKeyState('6')) { camera.setRPY(0, 0.75, 0); camera.setPosition(new Vec4(0,10,0)); }
+    if (Input.getKeyState('1')) { grasslength += 0.01; }
+    if (Input.getKeyState('2')) { grasslength -= 0.01; }
+
+    cameraNode.offsetMatrix = camera.getView();
+    sceneGraph.update();
+    lightsBuffer.bind();
+    let campos = camera.getPosition();
+    lightsBuffer.setData(new Float32Array([campos.x, campos.y, campos.z]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes);//dirlightpos
+    let flashdir = camera.getRot().transform(0, 0, -1, 1).norm();
+    lightsBuffer.setData(new Float32Array([flashdir.x,flashdir.y,flashdir.z]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes + dirLightColorBytes);//dirlightdir
 
     //depth pass
     gl.bindTexture( gl.TEXTURE_2D, null );

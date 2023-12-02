@@ -14,8 +14,6 @@ class Node {
     }
 
     update() {
-
-        console.log("update");
         if (this.parent) {
             this.matrix = this.parent.matrix.mul(this.offsetMatrix);
         }
