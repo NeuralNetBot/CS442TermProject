@@ -63,6 +63,10 @@ class Camera {
         this.frustumplanes[5] = new Vec4(this.matrix.rc(3, 0) - this.matrix.rc(2, 0), this.matrix.rc(3, 1) - this.matrix.rc(2, 1), this.matrix.rc(3, 2) - this.matrix.rc(2, 2), this.matrix.rc(3, 3) - this.matrix.rc(2, 3));
     }
 
+    getRot() {
+        return this.rot;
+    }
+
     getView(translate=true) {
         let cameramat = null;
         if(translate) {

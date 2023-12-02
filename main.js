@@ -92,6 +92,18 @@ let fragment_source =
         b = int(packedValues.g * float(lights.num_lights));
     }
 
+    float calcSpotlightAttenuation(vec3 light_direction, vec3 spotlight_dir, float cutoff_angle) {
+        float cosAngle = dot(normalize(-light_direction), normalize(spotlight_dir));
+        float spotlightCutoff = cos(cutoff_angle);
+        
+        if (cosAngle > spotlightCutoff) {
+            float spotEffect = smoothstep(spotlightCutoff, spotlightCutoff + 0.1, cosAngle);
+            return spotEffect * 3.0;
+        } else {
+            return 0.0;
+        }
+    }
+
     vec3 calcLight(vec3 light_direcion, vec3 light_color, vec3 surf_normal)
     {
         float L = max(dot(surf_normal, light_direcion), 0.0);
@@ -121,7 +133,9 @@ let fragment_source =
         vec3 ambient = ambient * lights.sun_color;
 
         vec3 final = ambient + calcLight(-lights.sun_direction, lights.sun_color, aNormal);
-        
+        vec3 spotlightfragdir = normalize(lights.spotlight_position - aPosition);
+        final += calcLight(spotlightfragdir, lights.spotlight_color.rgb, aNormal) * calcSpotlightAttenuation(spotlightfragdir, lights.spotlight_direction, lights.spotlight_color.w);
+
         for(int i = 0; i < MAX_LIGHTS_PER_TILE; i++)
         {
             if(tilelightdata[i] >= lights.num_lights) {
@@ -238,24 +252,37 @@ let water_fragment_source =
 
     uniform samplerCube skybox;
 
-    vec3 sun_color = vec3(1.0, 1.0, 1.0);
-    vec3 light_direction = normalize(vec3(-1.0, -1.0, -1.0));
+    uniform Lights {
+        highp int num_lights;
+        vec3 light_positions[64];
+        vec4 light_colors[64];//w radius of light
+        vec3 sun_direction;
+        vec3 sun_color;
+        vec3 spotlight_position;
+        vec4 spotlight_color;//w component is angle limit
+        vec3 spotlight_direction;
+    } lights;
 
+    float calcSpotlightAttenuation(vec3 light_direction, vec3 spotlight_dir, float cutoff_angle) {
+        float cosAngle = dot(normalize(-light_direction), normalize(spotlight_dir));
+        float spotlightCutoff = cos(cutoff_angle);
+        
+        if (cosAngle > spotlightCutoff) {
+            float spotEffect = smoothstep(spotlightCutoff, spotlightCutoff + 0.1, cosAngle);
+            return spotEffect * 3.0;
+        } else {
+            return 0.0;
+        }
+    }
 
-    vec3 calcLight(vec3 light_direcion, vec3 light_color)
+    vec3 calcLight(vec3 light_direction, vec3 light_color)
     {
-        float L = max(dot(v_normal, light_direcion), 0.0);
+        float L = max(dot(v_normal, light_direction), 0.0);
         vec3 diffuse = mat_diffuse * light_color * L;
 
         vec3 halfway = normalize(light_direction + camera_position);
-
-        float fresnelFactor = dot(halfway, camera_position);
-        fresnelFactor = max(fresnelFactor, 0.0);
-        fresnelFactor = 1.0 - fresnelFactor;
-        fresnelFactor = pow(fresnelFactor, fresnelPower);
-        alpha = mix(alpha, 1.0, fresnelFactor);
         
-        vec3 reflection = reflect(-light_direcion, v_normal);
+        vec3 reflection = reflect(-light_direction, v_normal);
         vec3 view_dir = normalize(camera_position - v_pos);
         float spec = pow(max(dot(view_dir, halfway), 0.0), mat_shininess) * L;
         vec3 specular = light_color * spec * mat_specular;
@@ -268,7 +295,12 @@ let water_fragment_source =
         vec3 I = normalize(v_pos - camera_position);
         vec3 R = reflect(I, normalize(v_normal));
         R.xy = -R.xy;
-        t_f_color = vec4(texture(skybox, R).rgb, 1.0) * vec4(0.3, 0.56, 0.95, alpha) * vec4(calcLight(-light_direction, sun_color), 1.0);
+
+        vec3 final = calcLight(-lights.sun_direction, lights.sun_color);
+        vec3 spotlightfragdir = normalize(lights.spotlight_position - v_pos);
+        final += calcLight(spotlightfragdir, lights.spotlight_color.rgb) * calcSpotlightAttenuation(spotlightfragdir, lights.spotlight_direction, lights.spotlight_color.w);
+
+        t_f_color = vec4(texture(skybox, R).rgb, 1.0) * vec4(0.3, 0.56, 0.95, alpha) * vec4(final, 1.0);
     } `;
 
 let depth_vertex_source = 
@@ -616,10 +648,11 @@ let grass_draw_vertex_source =
         vec3 grasswindoffset = vec3(grasswindoffsetxz.x, -length(grasswindoffsetxz), grasswindoffsetxz.y);
         grassPos.xyz += grasswindoffset;
 
-        aPosition = position;
+        vec3 finalpos = positionoffset + newpos + grassPos.xyz + vec3(grassIndex.x, 0.0, grassIndex.y);
+        aPosition = finalpos;
         aNormal = normal;
         aUV = uv;
-        gl_Position = (mvp.view_projection) * vec4(positionoffset + newpos + grassPos.xyz + vec3(grassIndex.x, 0.0, grassIndex.y), 1.0 );
+        gl_Position = (mvp.view_projection) * vec4(finalpos, 1.0 );
     }
 `;
 
@@ -648,9 +681,45 @@ let grass_draw_fragment_source =
 
     uniform vec3 camera_position;
 
+    float calcSpotlightAttenuation(vec3 light_direction, vec3 spotlight_dir, float cutoff_angle) {
+        float cosAngle = dot(normalize(-light_direction), normalize(spotlight_dir));
+        float spotlightCutoff = cos(cutoff_angle);
+        
+        if (cosAngle > spotlightCutoff) {
+            float spotEffect = smoothstep(spotlightCutoff, spotlightCutoff + 0.1, cosAngle);
+            return spotEffect;
+        } else {
+            return 0.0;
+        }
+    }
+
+    vec3 calcLight(vec3 light_direcion, vec3 light_color, vec3 surf_normal)
+    {
+        float L = max(dot(surf_normal, light_direcion), 0.0);
+        vec3 diffuse = 0.3 * light_color * L;
+        
+        vec3 reflection = reflect(-light_direcion, surf_normal);
+        vec3 view_dir = normalize(camera_position - aPosition);
+        float spec = pow(max(dot(view_dir, reflection), 0.0), 0.1) * L;
+        vec3 specular = light_color * spec * 1.0;
+    
+        return diffuse + specular;
+    }
+
     void main( void )
     {
-        f_color = vec4(mix(vec3(0.0, 0.0, 0.0), vec3(119.0/255.0, 156.0/255.0, 75.0/255.0), aPosition.y / 10.0), 1.0);
+        vec3 spotlightfragdir = normalize(lights.spotlight_position - aPosition);
+        vec3 dpdx = dFdx(aPosition);
+        vec3 dpdy = dFdy(aPosition);
+        vec3 normal = normalize(cross(dpdx, dpdy));
+
+        float dist = length(lights.spotlight_position - aPosition);
+        float atten = 1.0 / (0.1 * dist);
+
+        vec3 ambient = 0.01 * lights.sun_color;
+        vec3 final = ambient + calcLight(spotlightfragdir, lights.spotlight_color.rgb, normal) * atten * calcSpotlightAttenuation(spotlightfragdir, lights.spotlight_direction, lights.spotlight_color.w);
+
+        f_color = vec4(mix(vec3(0.0, 0.1, 0.0), vec3(119.0/255.0, 156.0/255.0, 75.0/255.0), aPosition.y / 10.0) * final, 1.0);
     }
 `;
 
@@ -754,13 +823,18 @@ let lightsBuffer = new GPUBuffer(gl, gl.UNIFORM_BUFFER, numLightsBytes + lightPo
 lightsBuffer.setData(numLights, 0);
 lightsBuffer.setData(lightPositions, numLightsBytes);
 lightsBuffer.setData(lightColors, numLightsBytes + lightPositionsBytes);
-lightsBuffer.setData(new Float32Array([sundir.x, sundir.y, sundir.z]), numLightsBytes + lightPositionsBytes + lightColorsBytes)
-lightsBuffer.setData(new Float32Array([1,1,1]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes)
+lightsBuffer.setData(new Float32Array([sundir.x, sundir.y, sundir.z]), numLightsBytes + lightPositionsBytes + lightColorsBytes);
+lightsBuffer.setData(new Float32Array([1,1,1]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes);
+
+lightsBuffer.setData(new Float32Array([0,2,0]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes);//dirlightpos
+lightsBuffer.setData(new Float32Array([1,1,1,0.5]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes);//dirlightcolor
+lightsBuffer.setData(new Float32Array([0,0,-1]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes + dirLightColorBytes);//dirlightdir
 
 lightsBuffer.bindToShader(mainshader, "Lights");
 lightsBuffer.bindToShader(lightshader, "Lights");
 lightsBuffer.bindToShader(light_cull_shader, "Lights");
 lightsBuffer.bindToShader(grassshader, "Lights");
+lightsBuffer.bindToShader(watershader, "Lights");
 
 Input.setMouseHandler(handleMouse);
 Input.init();
@@ -1021,6 +1095,12 @@ function render(now) {
 
     cameraNode.offsetMatrix = camera.getView();
     sceneGraph.update();
+    lightsBuffer.bind();
+    let campos = camera.getPosition();
+    lightsBuffer.setData(new Float32Array([campos.x, campos.y, campos.z]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes);//dirlightpos
+    let flashdir = camera.getRot().transform(0, 0, -1, 1).norm();
+    lightsBuffer.setData(new Float32Array([flashdir.x,flashdir.y,flashdir.z]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes + dirLightColorBytes);//dirlightdir
+
     //depth pass
     gl.bindTexture( gl.TEXTURE_2D, null );
 
