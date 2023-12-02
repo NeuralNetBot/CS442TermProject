@@ -237,15 +237,15 @@ let water_fragment_source =
     `#version 300 es
     precision mediump float;
     out vec4 t_f_color;
-    float alpha = 0.9;
+    float alpha = 0.93;
 
     in vec3 v_normal;
     in vec2 v_uv;
     in vec3 v_pos;
 
-    float fresnelPower = 0.5; 
+    float fresnelPower = 0.825; 
     float mat_ambient = 0.25;
-    float mat_diffuse = 1.0;
+    float mat_diffuse = 0.85;
     float mat_specular = 2.0;
     float mat_shininess = 32.0;
     uniform vec3 camera_position;
@@ -303,8 +303,7 @@ let water_fragment_source =
         vec3 R = reflect(I, normalize(v_normal));
         R.xy = -R.xy;
         
-        float f = fresnel(normalize(lights.spotlight_direction), vec3(0.0, 1.0, 0.0), fresnelPower);
-
+        float f = fresnel(normalize(lights.spotlight_direction), vec3(0.0, 0.85, 0.0), fresnelPower);
 
         vec3 final = calcLight(-lights.sun_direction, lights.sun_color);
         vec3 spotlightfragdir = normalize(lights.spotlight_position - v_pos);
