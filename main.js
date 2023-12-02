@@ -651,7 +651,7 @@ let grass_draw_vertex_source =
 
         vec3 finalpos = positionoffset + newpos + grassPos.xyz + vec3(grassIndex.x, 0.0, grassIndex.y);
         aPosition = finalpos;
-        aNormal = newnormal;
+        aNormal = normalize(newnormal);
         aUV = uv;
         gl_Position = (mvp.view_projection) * vec4(finalpos, 1.0 );
     }
@@ -825,7 +825,7 @@ lightsBuffer.setData(new Float32Array([sundir.x, sundir.y, sundir.z]), numLights
 lightsBuffer.setData(new Float32Array([1,1,1]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes);
 
 lightsBuffer.setData(new Float32Array([0,2,0]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes);//dirlightpos
-lightsBuffer.setData(new Float32Array([1,1,1,0.5]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes);//dirlightcolor
+lightsBuffer.setData(new Float32Array([1,1,1,0.75]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes);//dirlightcolor
 lightsBuffer.setData(new Float32Array([0,0,-1]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes + dirLightColorBytes);//dirlightdir
 
 lightsBuffer.bindToShader(mainshader, "Lights");
