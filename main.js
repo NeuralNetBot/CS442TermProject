@@ -243,7 +243,7 @@ let water_fragment_source =
     in vec2 v_uv;
     in vec3 v_pos;
 
-    float fresnelPower = 2.0; 
+    float fresnelPower = 0.5; 
     float mat_ambient = 0.25;
     float mat_diffuse = 1.0;
     float mat_specular = 2.0;
@@ -276,10 +276,10 @@ let water_fragment_source =
     }
     
     float fresnel(vec3 view, vec3 norm, float power) {
-        float fresnelFactor = dot(view, norm);
+        float fresnelFactor = dot(-view, norm);
         float inversefresnelFactor = 1.0 - fresnelFactor;
 
-        return pow(fresnelFactor, power);
+        return pow(inversefresnelFactor, power);
     }
 
     vec3 calcLight(vec3 light_direction, vec3 light_color)
