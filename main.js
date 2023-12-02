@@ -796,10 +796,10 @@ const lightPositions = new Float32Array(
     ]);
 const lightColors = new Float32Array(
     [
-        1.0, 0.0, 0.0, 3.5,
-        0.0, 1.0, 0.0, 3.5,
-        0.0, 0.0, 1.0, 3.5,
-        1.0, 1.0, 0.0, 3.5
+        1.0, 0.0, 0.0, 13.5,
+        0.0, 1.0, 0.0, 13.5,
+        0.0, 0.0, 1.0, 13.5,
+        1.0, 1.0, 0.0, 13.5
     ]);
     
 let MVPBuffer = new GPUBuffer(gl, gl.UNIFORM_BUFFER, 4 * 16 * 2, 0);
@@ -931,14 +931,14 @@ function renderObjects(time_delta, now, depthonly) {
     MVPBuffer.bind();
     MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
     MVPBuffer.setData(cameramat.asColumnMajorFloat32Array(), 4 * 16);
-    
+    /*
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture( gl.TEXTURE_2D, tex );
 
     if (planemesh) {
         planemesh.render(gl, currentshader);
     }
-    
+    */
     gl.bindTexture( gl.TEXTURE_2D, groundtex );
     
     //render terrain for the chunks
@@ -1098,6 +1098,12 @@ function render(now) {
     lightsBuffer.setData(new Float32Array([campos.x, campos.y, campos.z]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes);//dirlightpos
     let flashdir = camera.getRot().transform(0, 0, -1, 1).norm();
     lightsBuffer.setData(new Float32Array([flashdir.x,flashdir.y,flashdir.z]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes + dirLightColorBytes);//dirlightdir
+
+    if (Input.getKeyState("leftclick")) {
+        lightsBuffer.setData(new Float32Array([0,0,0,0]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes);//dirlightcolor
+    } else {
+        lightsBuffer.setData(new Float32Array([1,1,1,0.75]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes);//dirlightcolor
+    }
 
     //depth pass
     gl.bindTexture( gl.TEXTURE_2D, null );
