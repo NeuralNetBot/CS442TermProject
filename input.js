@@ -15,6 +15,9 @@ class Input {
         return Input.keyStates.get(key) || false;
     }
 
+    static handleMouseClick(clicked) {
+        Input.keyStates.set("leftclick", clicked);
+    }
 
     static isLocked = false;
 
@@ -73,6 +76,8 @@ class Input {
         document.addEventListener('mousemove', Input.handleMouseMove);
         document.addEventListener('keydown', Input.handleKeyDown);
         document.addEventListener('keyup', Input.handleKeyUp);
+        document.addEventListener('mousedown', function(event) { if (event.button === 0) { Input.handleMouseClick(true); } });
+        document.addEventListener('mouseup', function(event) { if (event.button === 0) { Input.handleMouseClick(false); } });
     }
 
 }

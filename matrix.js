@@ -128,6 +128,10 @@ class Mat4 {
         return res;
     }
 
+    getPosition() {
+        return new Vec4(this.rc(0, 3), this.rc(1, 3), this.rc(1, 3), 1.0);
+    }
+
 	// right multiply by column vector
     transform( x, y, z, w ) {
         return this.transform_vec( new Vec4( x, y, z, w ) );
