@@ -836,7 +836,7 @@ gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_diffuse" ), 0
 gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_specular" ), 0.1 );
 gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_shininess" ), 1.0 );
 
-const numLights = new Int32Array([4]);
+const numLights = new Int32Array([5]);
 const lightPositions = new Float32Array(
     [
         0.0, 11.0, 0.0, 0.0,
@@ -849,7 +849,8 @@ const lightColors = new Float32Array(
         1.0, 0.0, 0.0, 50,
         0.0, 2.0, 0.0, 50,
         0.0, 0.0, 5.0, 50,
-        1.0, 1.0, 0.0, 50
+        1.0, 1.0, 0.0, 50,
+        252/255, 115/255, 3/255, 50
     ]);
     
 let MVPBuffer = new GPUBuffer(gl, gl.UNIFORM_BUFFER, 4 * 16 * 2, 0);
@@ -912,12 +913,15 @@ let sceneGraph = new SceneGraph();
 let lightCenterNode = new Node(sceneGraph.getRoot(), Mat4.translation(-480.0, 30.0, 400.0), []);
 let lightLCNode = new Node(lightCenterNode, Mat4.translation(90, 0, 0), []);
 let lightRCNode = new Node(lightCenterNode, Mat4.translation(-90, 0, 0), []);
+let lightTCNode = new Node(lightCenterNode, Mat4.translation(0, 0, 120), []);
+let lightBCNode = new Node(lightCenterNode, Mat4.translation(0, 0, -120), []);
 
 let lightNodes = [
     new Node(lightLCNode, Mat4.translation(-15, 0, 0), []),
     new Node(lightLCNode, Mat4.translation(15, 0, 0), []),
     new Node(lightRCNode, Mat4.translation(-15, 0, 0), []),
     new Node(lightRCNode, Mat4.translation(15, 0, 0), []),
+    new Node(lightTCNode, Mat4.translation(15, 0, 15), []),
 ]
 
 let flashlightNode = new Node(null, Mat4.scale(0.1, 0.1, 0.1).mul(Mat4.translation(4, -4, -5).mul(Mat4.rotation_yz(0.25).mul(Mat4.rotation_xz(0.25)))), []);
@@ -1162,6 +1166,8 @@ function render(now) {
 
     if (Input.getKeyState('1')) { grasslength += 0.01; }
     if (Input.getKeyState('2')) { grasslength -= 0.01; }
+    if (Input.getKeyState('3')) { grasslength = 0.0; }
+    if (Input.getKeyState('4')) { grasslength = 1.0; }
 
     cameraNode.offsetMatrix = camera.getView();
     sceneGraph.update();
