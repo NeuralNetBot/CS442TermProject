@@ -796,10 +796,10 @@ const lightPositions = new Float32Array(
     ]);
 const lightColors = new Float32Array(
     [
-        1.0, 0.0, 0.0, 13.5,
-        0.0, 1.0, 0.0, 13.5,
-        0.0, 0.0, 1.0, 13.5,
-        1.0, 1.0, 0.0, 13.5
+        1.0, 0.0, 0.0, 50,
+        0.0, 1.0, 0.0, 505,
+        0.0, 0.0, 1.0, 50,
+        1.0, 1.0, 0.0, 50
     ]);
     
 let MVPBuffer = new GPUBuffer(gl, gl.UNIFORM_BUFFER, 4 * 16 * 2, 0);
@@ -857,6 +857,19 @@ let new_cube_map_texture = loadCubeMap(gl, 'right.jpg', 'left.jpg', 'top.jpg', '
 
 let renderCubeMap = false;
 let sceneGraph = new SceneGraph();
+
+
+let lightCenterNode = new Node(sceneGraph.getRoot(), Mat4.translation(-480.0, 30.0, 400.0), []);
+let lightLCNode = new Node(lightCenterNode, Mat4.translation(70, 0, 0), []);
+let lightRCNode = new Node(lightCenterNode, Mat4.translation(-70, 0, 0), []);
+
+let lightNodes = [
+    new Node(lightLCNode, Mat4.translation(-10, 0, 0), []),
+    new Node(lightLCNode, Mat4.translation(10, 0, 0), []),
+    new Node(lightRCNode, Mat4.translation(-10, 0, 0), []),
+    new Node(lightRCNode, Mat4.translation(10, 0, 0), []),
+]
+
 let flashlightNode = new Node(null, Mat4.scale(0.1, 0.1, 0.1).mul(Mat4.translation(4, -4, -5).mul(Mat4.rotation_yz(0.25).mul(Mat4.rotation_xz(0.25)))), []);
 let cameraNode = new Node(sceneGraph.getRoot(), camera.getView(), [flashlightNode]);
 
@@ -1104,6 +1117,18 @@ function render(now) {
     } else {
         lightsBuffer.setData(new Float32Array([1,1,1,0.75]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes);//dirlightcolor
     }
+
+    lightCenterNode.offsetMatrix = lightCenterNode.offsetMatrix.mul(Mat4.rotation_xz(time_delta * 0.1));
+    lightLCNode.offsetMatrix = lightLCNode.offsetMatrix.mul(Mat4.rotation_xz(time_delta * 0.1));
+    lightRCNode.offsetMatrix = lightRCNode.offsetMatrix.mul(Mat4.rotation_xz(time_delta * 0.1));
+
+    const lightsPosTemp = [];
+    for(let i = 0; i < lightNodes.length; i++) {
+        let tempvec = lightNodes[i].matrix.transform(0,0,0,1);
+        lightsPosTemp.push(tempvec.x, tempvec.y, tempvec.z, 0.0);
+    }
+        
+    lightsBuffer.setData(new Float32Array(lightsPosTemp), numLightsBytes);
 
     //depth pass
     gl.bindTexture( gl.TEXTURE_2D, null );
