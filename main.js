@@ -715,7 +715,7 @@ let grass_draw_fragment_source =
         if (cosAngle > spotlightCutoff) {
             float spotEffect = smoothstep(spotlightCutoff, spotlightCutoff + 0.1, cosAngle);
             float dist = length(lights.spotlight_position - aPosition);
-            return spotEffect * 2.5 * (1.0 / (0.07 * dist));
+            return spotEffect * 3.0 * (1.0 / (0.09 * dist));
         } else {
             return 0.0;
         }
