@@ -98,7 +98,8 @@ let fragment_source =
         
         if (cosAngle > spotlightCutoff) {
             float spotEffect = smoothstep(spotlightCutoff, spotlightCutoff + 0.1, cosAngle);
-            return spotEffect * 3.0;
+            float dist = length(lights.spotlight_position - aPosition);
+            return spotEffect * 3.0 * (1.0 / (0.07 * dist));
         } else {
             return 0.0;
         }
@@ -269,7 +270,8 @@ let water_fragment_source =
         
         if (cosAngle > spotlightCutoff) {
             float spotEffect = smoothstep(spotlightCutoff, spotlightCutoff + 0.1, cosAngle);
-            return spotEffect * 3.0;
+            float dist = length(lights.spotlight_position - v_pos);
+            return spotEffect * 3.0 * (1.0 / (0.07 * dist));
         } else {
             return 0.0;
         }
@@ -703,7 +705,8 @@ let grass_draw_fragment_source =
         
         if (cosAngle > spotlightCutoff) {
             float spotEffect = smoothstep(spotlightCutoff, spotlightCutoff + 0.1, cosAngle);
-            return spotEffect * 1.5;
+            float dist = length(lights.spotlight_position - aPosition);
+            return spotEffect * 3.0 * (1.0 / (0.07 * dist));
         } else {
             return 0.0;
         }
