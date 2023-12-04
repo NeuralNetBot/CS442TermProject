@@ -390,7 +390,7 @@ let light_draw_vertex_source =
         aNormal = normal;
         aUV = uv;
         instanceID = int(gl_InstanceID);
-        gl_Position = (mvp.view_projection) * vec4( (position / 5.0) + lights.light_positions[int(gl_InstanceID)], 1.0 );
+        gl_Position = (mvp.view_projection) * vec4( (position / 2.0) + lights.light_positions[int(gl_InstanceID)], 1.0 );
     }
 `;
 
@@ -715,7 +715,7 @@ let grass_draw_fragment_source =
         if (cosAngle > spotlightCutoff) {
             float spotEffect = smoothstep(spotlightCutoff, spotlightCutoff + 0.1, cosAngle);
             float dist = length(lights.spotlight_position - aPosition);
-            return spotEffect * 3.0 * (1.0 / (0.07 * dist));
+            return spotEffect * 2.5 * (1.0 / (0.07 * dist));
         } else {
             return 0.0;
         }
@@ -767,7 +767,7 @@ let grass_draw_fragment_source =
             final += calcLight(light_dir, vec3(lights.light_colors[lightindex]), aNormal) * atten;
         }
 
-        f_color = vec4(mix(vec3(0.0, 0.1, 0.0), vec3(119.0/255.0, 156.0/255.0, 75.0/255.0), aPosition.y / 10.0) * final, 1.0);
+        f_color = vec4(mix(vec3(0.0, 0.1, 0.0), vec3(21.0/255.0, 48.0/255.0, 3.0/255.0), aPosition.y / 10.0) * final, 1.0);
     }
 `;
 
@@ -811,7 +811,7 @@ let skyboxmesh = Mesh.box(gl);
 let box = Mesh.box(gl);
 
 let cube_map_perspective = Mat4.perspective(Math.PI / 2, 1, 0.1, 1000);
-cube_map_camera = new Camera(new Vec4(0, 0, 0, 0), 0, 0, 0, cube_map_perspective);
+cube_map_camera = new Camera(new Vec4(-480.0, 12.0, 400.0, 0), 0, 0, 0, cube_map_perspective);
 
 let heighttextureloaded = false;
 let heightimage = null;
@@ -832,11 +832,11 @@ sundir = sundir.norm();
 mainshader.use();
 
 gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "ambient" ), 0.01 );
-gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_diffuse" ), 0.3 );
+gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_diffuse" ), 0.1 );
 gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_specular" ), 0.1 );
 gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_shininess" ), 1.0 );
 
-const numLights = new Int32Array([4]);
+const numLights = new Int32Array([5]);
 const lightPositions = new Float32Array(
     [
         0.0, 11.0, 0.0, 0.0,
@@ -849,7 +849,8 @@ const lightColors = new Float32Array(
         1.0, 0.0, 0.0, 50,
         0.0, 2.0, 0.0, 50,
         0.0, 0.0, 5.0, 50,
-        1.0, 1.0, 0.0, 50
+        1.0, 1.0, 0.0, 50,
+        252/255, 115/255, 3/255, 50
     ]);
     
 let MVPBuffer = new GPUBuffer(gl, gl.UNIFORM_BUFFER, 4 * 16 * 2, 0);
@@ -910,14 +911,17 @@ let sceneGraph = new SceneGraph();
 
 
 let lightCenterNode = new Node(sceneGraph.getRoot(), Mat4.translation(-480.0, 30.0, 400.0), []);
-let lightLCNode = new Node(lightCenterNode, Mat4.translation(70, 0, 0), []);
-let lightRCNode = new Node(lightCenterNode, Mat4.translation(-70, 0, 0), []);
+let lightLCNode = new Node(lightCenterNode, Mat4.translation(90, 0, 0), []);
+let lightRCNode = new Node(lightCenterNode, Mat4.translation(-90, 0, 0), []);
+let lightTCNode = new Node(lightCenterNode, Mat4.translation(0, 0, 120), []);
+let lightBCNode = new Node(lightCenterNode, Mat4.translation(0, 0, -120), []);
 
 let lightNodes = [
-    new Node(lightLCNode, Mat4.translation(-10, 0, 0), []),
-    new Node(lightLCNode, Mat4.translation(10, 0, 0), []),
-    new Node(lightRCNode, Mat4.translation(-10, 0, 0), []),
-    new Node(lightRCNode, Mat4.translation(10, 0, 0), []),
+    new Node(lightLCNode, Mat4.translation(-15, 0, 0), []),
+    new Node(lightLCNode, Mat4.translation(15, 0, 0), []),
+    new Node(lightRCNode, Mat4.translation(-15, 0, 0), []),
+    new Node(lightRCNode, Mat4.translation(15, 0, 0), []),
+    new Node(lightTCNode, Mat4.translation(15, 0, 15), []),
 ]
 
 let flashlightNode = new Node(null, Mat4.scale(0.1, 0.1, 0.1).mul(Mat4.translation(4, -4, -5).mul(Mat4.rotation_yz(0.25).mul(Mat4.rotation_xz(0.25)))), []);
@@ -962,7 +966,7 @@ function resizeCanvas() {
 function renderTerrain() {
     mainshader.use();
     //let model = Mat4.translation(0.0, -1.0, 0.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_xy( 0.0 )));
-    let model = Mat4.translation(0.0, 4.0, -30.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_yz( -0.25 )));
+    let model = Mat4.translation(-480.0, 12.0, 390.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_yz( -0.25 )));
 
 
     //let cameramat = camera.getMatrix();
@@ -976,8 +980,73 @@ function renderTerrain() {
     MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
     MVPBuffer.setData(cameramat.asColumnMajorFloat32Array(), 4 * 16);
 
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    planemesh.render(gl, mainshader.getProgram());
+    //gl.bindTexture(gl.TEXTURE_2D, tex);
+    //planemesh.render(gl, mainshader.getProgram());
+    
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture( gl.TEXTURE_2D, groundtex );
+    
+    bindUnbindLightDataTextures(true);
+    //render terrain for the chunks
+    chunkManager.setCamera(cube_map_camera);
+    cube_map_camera.calcFrustum();
+    chunkManager.updateVisibleChunks(true);
+    let vischunks = chunkManager.getVisibleChunks();
+    vischunks.forEach(chunk => {
+        if (!heightmapmeshes.get(chunk[0], chunk[1]) && heighttextureloaded) {
+            const xpos = (chunk[0] % 10) * 100;
+            const ypos = (chunk[1] % 10) * 100;
+            const xsamplepos = xpos < 0 ? 1000 - Math.abs(xpos) : xpos;
+            const ysamplepos = ypos < 0 ? 1000 - Math.abs(ypos) : ypos;
+            
+            heightmapmeshes.set(chunk[0], chunk[1], [Mesh.fromHeightMap(gl, heightimage, xsamplepos, ysamplepos, 101, 101, 101, 50), xpos, ypos]);
+            console.log("pre loading chunk", xpos, ypos);
+        }
+        heightmapmesh = heightmapmeshes.get(chunk[0], chunk[1]);
+        model = Mat4.translation(heightmapmesh[1], 0.0, heightmapmesh[2]);
+        MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);        
+        heightmapmesh[0].render(gl, mainshader.getProgram());
+    });
+    
+    grassshader.use();
+    gl.uniform3f( gl.getUniformLocation( grassshader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
+    gl.uniform2f(gl.getUniformLocation(grassshader.getProgram(), 'windDir'), 0, 0);
+    gl.uniform1f(gl.getUniformLocation(grassshader.getProgram(), 'grasslength'), grasslength);
+    gl.uniform2f(gl.getUniformLocation(grassshader.getProgram(), "screen_size" ), 2048, 2048 );
+
+    gl.disable( gl.CULL_FACE );
+    vischunks.forEach(chunk => {
+        grass_comp_shader.use();
+        gl.uniform1f( gl.getUniformLocation( grass_comp_shader.getProgram(), "seed" ), chunk[0] * 10 + chunk[1] );
+        gl.uniform2f( gl.getUniformLocation( grass_comp_shader.getProgram(), "chunk" ), chunk[0], chunk[1] );
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, heighttex);
+        grass_comp_shader.dispatch();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        grassshader.use();
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.activeTexture(gl.TEXTURE10); gl.bindTexture(gl.TEXTURE_2D, null);
+        let grasstextures = grass_comp_shader.getRenderTextures();
+        bindUnbindLightDataTextures(true);
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, wind_noise_texture);
+        gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, grasstextures[0]);
+        gl.activeTexture(gl.TEXTURE10); gl.bindTexture(gl.TEXTURE_2D, grasstextures[1]);
+        
+        gl.uniform3f( gl.getUniformLocation( grassshader.getProgram(), "positionoffset" ), chunk[0] * 100, 0, chunk[1] * 100 );
+        if(chunk[2] == 1) {
+            grassmeshlod1.renderInstanced(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
+        } else {
+            grassmesh.renderInstanced(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
+        }
+        
+    });
+    
+    gl.enable( gl.CULL_FACE );
+    gl.activeTexture(gl.TEXTURE0);
+    
+    
+    chunkManager.setCamera(camera);
 }
 
 function renderObjects(time_delta, now, depthonly) {
@@ -1162,6 +1231,8 @@ function render(now) {
 
     if (Input.getKeyState('1')) { grasslength += 0.01; }
     if (Input.getKeyState('2')) { grasslength -= 0.01; }
+    if (Input.getKeyState('3')) { grasslength = 0.0; }
+    if (Input.getKeyState('4')) { grasslength = 1.0; }
 
     cameraNode.offsetMatrix = camera.getView();
     sceneGraph.update();
@@ -1174,7 +1245,7 @@ function render(now) {
     if (Input.getKeyState("leftclick")) {
         lightsBuffer.setData(new Float32Array([0,0,0,0]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes);//dirlightcolor
     } else {
-        lightsBuffer.setData(new Float32Array([1,1,1,0.75]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes);//dirlightcolor
+        lightsBuffer.setData(new Float32Array([1,1,1,0.95]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes);//dirlightcolor
     }
 
     lightCenterNode.offsetMatrix = lightCenterNode.offsetMatrix.mul(Mat4.rotation_xz(time_delta * 0.1));
