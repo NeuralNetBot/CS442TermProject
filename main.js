@@ -715,7 +715,7 @@ let grass_draw_fragment_source =
         if (cosAngle > spotlightCutoff) {
             float spotEffect = smoothstep(spotlightCutoff, spotlightCutoff + 0.1, cosAngle);
             float dist = length(lights.spotlight_position - aPosition);
-            return spotEffect * 3.0 * (1.0 / (0.07 * dist));
+            return spotEffect * 2.5 * (1.0 / (0.07 * dist));
         } else {
             return 0.0;
         }
@@ -767,7 +767,7 @@ let grass_draw_fragment_source =
             final += calcLight(light_dir, vec3(lights.light_colors[lightindex]), aNormal) * atten;
         }
 
-        f_color = vec4(mix(vec3(0.0, 0.1, 0.0), vec3(119.0/255.0, 156.0/255.0, 75.0/255.0), aPosition.y / 10.0) * final, 1.0);
+        f_color = vec4(mix(vec3(0.0, 0.1, 0.0), vec3(21.0/255.0, 48.0/255.0, 3.0/255.0), aPosition.y / 10.0) * final, 1.0);
     }
 `;
 
@@ -832,7 +832,7 @@ sundir = sundir.norm();
 mainshader.use();
 
 gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "ambient" ), 0.01 );
-gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_diffuse" ), 0.3 );
+gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_diffuse" ), 0.1 );
 gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_specular" ), 0.1 );
 gl.uniform1f( gl.getUniformLocation( mainshader.getProgram(), "mat_shininess" ), 1.0 );
 
@@ -1245,7 +1245,7 @@ function render(now) {
     if (Input.getKeyState("leftclick")) {
         lightsBuffer.setData(new Float32Array([0,0,0,0]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes);//dirlightcolor
     } else {
-        lightsBuffer.setData(new Float32Array([1,1,1,0.75]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes);//dirlightcolor
+        lightsBuffer.setData(new Float32Array([1,1,1,0.95]), numLightsBytes + lightPositionsBytes + lightColorsBytes + sunPosBytes + sunColorBytes + dirLightPosBytes);//dirlightcolor
     }
 
     lightCenterNode.offsetMatrix = lightCenterNode.offsetMatrix.mul(Mat4.rotation_xz(time_delta * 0.1));
