@@ -88,8 +88,8 @@ let fragment_source =
     uniform float mat_shininess;
     
     void unpackInts(vec4 packedValues, out int a, out int b) {
-        a = int(packedValues.r * float(lights.num_lights));
-        b = int(packedValues.g * float(lights.num_lights));
+        a = int(packedValues.r);
+        b = int(packedValues.g);
     }
 
     float calcSpotlightAttenuation(vec3 light_direction, vec3 spotlight_dir, float cutoff_angle) {
@@ -508,7 +508,7 @@ let light_culling_comp_fragment_source =
     }
     
     vec4 packInts(int a, int b) {
-        return vec4(float(a) / float(lights.num_lights), float(b) / float(lights.num_lights), 0.0, 1.0);
+        return vec4(float(a), float(b), 0.0, 1.0);
     }
 
     void main() {
@@ -538,10 +538,7 @@ let light_culling_comp_fragment_source =
                 lindex++;
             }
         }
-        //give us a stopping point if needed
-        if(lindex < MAX_LIGHTS_PER_TILE) {
-            tilelightdata[lindex+1] = lights.num_lights+100;
-        }
+        if(lindex < MAX_LIGHTS_PER_TILE) {tilelightdata[lindex] = lights.num_lights; }
         
         lightOut0 = packInts(tilelightdata[0], tilelightdata[1]);
         lightOut1 = packInts(tilelightdata[2], tilelightdata[3]);
@@ -661,6 +658,9 @@ let grass_draw_fragment_source =
 `   #version 300 es
     precision mediump float;
 
+    const int TILE_SIZE = 16;
+    const int MAX_LIGHTS_PER_TILE = 16;
+
     //point lights
     uniform Lights {
         highp int num_lights;
@@ -673,6 +673,15 @@ let grass_draw_fragment_source =
         vec3 spotlight_direction;
     } lights;
 
+    uniform sampler2D lightData0;
+    uniform sampler2D lightData1;
+    uniform sampler2D lightData2;
+    uniform sampler2D lightData3;
+    uniform sampler2D lightData4;
+    uniform sampler2D lightData5;
+    uniform sampler2D lightData6;
+    uniform sampler2D lightData7;
+
     out vec4 f_color;
     
     in vec3 aPosition;
@@ -681,6 +690,12 @@ let grass_draw_fragment_source =
     flat in int instanceID;
 
     uniform vec3 camera_position;
+    uniform vec2 screen_size;
+
+    void unpackInts(vec4 packedValues, out int a, out int b) {
+        a = int(packedValues.r);
+        b = int(packedValues.g);
+    }
 
     float calcSpotlightAttenuation(vec3 light_direction, vec3 spotlight_dir, float cutoff_angle) {
         float cosAngle = dot(normalize(-light_direction), normalize(spotlight_dir));
@@ -696,7 +711,7 @@ let grass_draw_fragment_source =
 
     vec3 calcLight(vec3 light_direcion, vec3 light_color, vec3 surf_normal)
     {
-        float L = abs(dot(surf_normal, light_direcion));
+        float L = max(abs(dot(surf_normal, light_direcion)), 1.0);
         vec3 diffuse = 0.3 * light_color * L;
         
         vec3 reflection = reflect(-light_direcion, surf_normal);
@@ -709,13 +724,36 @@ let grass_draw_fragment_source =
 
     void main( void )
     {
-        vec3 spotlightfragdir = normalize(lights.spotlight_position - aPosition);
-
-        float dist = length(lights.spotlight_position - aPosition);
-        float atten = 1.0 / (0.1 * dist);
+        vec2 tile = gl_FragCoord.xy / screen_size;
+        int tilelightdata[MAX_LIGHTS_PER_TILE];
+        unpackInts(texture(lightData0, tile), tilelightdata[0], tilelightdata[1]);
+        unpackInts(texture(lightData1, tile), tilelightdata[2], tilelightdata[3]);
+        unpackInts(texture(lightData2, tile), tilelightdata[4], tilelightdata[5]);
+        unpackInts(texture(lightData3, tile), tilelightdata[6], tilelightdata[7]);
+        unpackInts(texture(lightData4, tile), tilelightdata[8], tilelightdata[9]);
+        unpackInts(texture(lightData5, tile), tilelightdata[10], tilelightdata[11]);
+        unpackInts(texture(lightData6, tile), tilelightdata[12], tilelightdata[13]);
+        unpackInts(texture(lightData7, tile), tilelightdata[14], tilelightdata[15]);
 
         vec3 ambient = 0.01 * lights.sun_color;
-        vec3 final = ambient + calcLight(spotlightfragdir, lights.spotlight_color.rgb, aNormal) * atten * calcSpotlightAttenuation(spotlightfragdir, lights.spotlight_direction, lights.spotlight_color.w);
+
+        vec3 final = ambient;// + calcLight(-lights.sun_direction, lights.sun_color, aNormal);
+        vec3 spotlightfragdir = normalize(lights.spotlight_position - aPosition);
+        final += calcLight(spotlightfragdir, lights.spotlight_color.rgb, aNormal) * calcSpotlightAttenuation(spotlightfragdir, lights.spotlight_direction, lights.spotlight_color.w);
+        for(int i = 0; i < MAX_LIGHTS_PER_TILE; i++)
+        {
+            if(tilelightdata[i] >= lights.num_lights) {
+                break;
+            }
+            int lightindex = tilelightdata[i];
+
+            float dist = length(lights.light_positions[lightindex] - aPosition);
+            if(dist > lights.light_colors[lightindex].w) continue;
+            //a nice fallof as our light reaches its radius
+            float atten = 1.0 - dist * dist / (lights.light_colors[lightindex].w * lights.light_colors[lightindex].w);
+            vec3 light_dir = normalize(lights.light_positions[lightindex] - aPosition);
+            final += calcLight(light_dir, vec3(lights.light_colors[lightindex]), aNormal) * atten;
+        }
 
         f_color = vec4(mix(vec3(0.0, 0.1, 0.0), vec3(119.0/255.0, 156.0/255.0, 75.0/255.0), aPosition.y / 10.0) * final, 1.0);
     }
@@ -797,8 +835,8 @@ const lightPositions = new Float32Array(
 const lightColors = new Float32Array(
     [
         1.0, 0.0, 0.0, 50,
-        0.0, 1.0, 0.0, 505,
-        0.0, 0.0, 1.0, 50,
+        0.0, 2.0, 0.0, 50,
+        0.0, 0.0, 5.0, 50,
         1.0, 1.0, 0.0, 50
     ]);
     
@@ -952,8 +990,10 @@ function renderObjects(time_delta, now, depthonly) {
         planemesh.render(gl, currentshader);
     }
     */
+    gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture( gl.TEXTURE_2D, groundtex );
     
+    bindUnbindLightDataTextures(true);
     //render terrain for the chunks
     let vischunks = chunkManager.getVisibleChunks();
     vischunks.forEach(chunk => {
@@ -1001,6 +1041,7 @@ function renderObjects(time_delta, now, depthonly) {
         windPosy += windspeed * Math.sin(windDir) * time_delta;
         gl.uniform2f(gl.getUniformLocation(grassshader.getProgram(), 'windDir'), windPosx, windPosy);
         gl.uniform1f(gl.getUniformLocation(grassshader.getProgram(), 'grasslength'), grasslength);
+        gl.uniform2f(gl.getUniformLocation(grassshader.getProgram(), "screen_size" ), canvas.width, canvas.height );
 
         gl.disable( gl.CULL_FACE );
         camera.calcFrustum();
@@ -1016,12 +1057,13 @@ function renderObjects(time_delta, now, depthonly) {
             gl.viewport(0, 0, canvas.width, canvas.height);
             grassshader.use();
             gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null);
-            gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, null);
-            gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, null);
+            gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, null);
+            gl.activeTexture(gl.TEXTURE10); gl.bindTexture(gl.TEXTURE_2D, null);
             let grasstextures = grass_comp_shader.getRenderTextures();
+            bindUnbindLightDataTextures(true);
             gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, wind_noise_texture);
-            gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, grasstextures[0]);
-            gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, grasstextures[1]);
+            gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, grasstextures[0]);
+            gl.activeTexture(gl.TEXTURE10); gl.bindTexture(gl.TEXTURE_2D, grasstextures[1]);
             
             gl.uniform3f( gl.getUniformLocation( grassshader.getProgram(), "positionoffset" ), chunk[0] * 100, 0, chunk[1] * 100 );
             if(chunk[2] == 1) {
@@ -1054,8 +1096,13 @@ function setupMainTextureUnits() {
 
     grassshader.use();
     gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'noise'), 0);
-    gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'grassPosXY'), 1);
-    gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'grassPosZROT'), 2);
+    for(let i = 0; i < light_cull_shader.getRenderTextures().length; i++) {
+        gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'lightData' + i), i+1);
+        console.log(i+1);
+    }
+    
+    gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'grassPosXY'), 9);
+    gl.uniform1i(gl.getUniformLocation(grassshader.getProgram(), 'grassPosZROT'), 10);
 }
 
 function bindUnbindLightDataTextures(bind) {
