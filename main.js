@@ -381,7 +381,7 @@ let light_draw_vertex_source =
         aNormal = normal;
         aUV = uv;
         instanceID = int(gl_InstanceID);
-        gl_Position = (mvp.view_projection) * vec4( (position / 5.0) + lights.light_positions[int(gl_InstanceID)], 1.0 );
+        gl_Position = (mvp.view_projection) * vec4( (position / 2.0) + lights.light_positions[int(gl_InstanceID)], 1.0 );
     }
 `;
 
@@ -901,14 +901,14 @@ let sceneGraph = new SceneGraph();
 
 
 let lightCenterNode = new Node(sceneGraph.getRoot(), Mat4.translation(-480.0, 30.0, 400.0), []);
-let lightLCNode = new Node(lightCenterNode, Mat4.translation(70, 0, 0), []);
-let lightRCNode = new Node(lightCenterNode, Mat4.translation(-70, 0, 0), []);
+let lightLCNode = new Node(lightCenterNode, Mat4.translation(90, 0, 0), []);
+let lightRCNode = new Node(lightCenterNode, Mat4.translation(-90, 0, 0), []);
 
 let lightNodes = [
-    new Node(lightLCNode, Mat4.translation(-10, 0, 0), []),
-    new Node(lightLCNode, Mat4.translation(10, 0, 0), []),
-    new Node(lightRCNode, Mat4.translation(-10, 0, 0), []),
-    new Node(lightRCNode, Mat4.translation(10, 0, 0), []),
+    new Node(lightLCNode, Mat4.translation(-15, 0, 0), []),
+    new Node(lightLCNode, Mat4.translation(15, 0, 0), []),
+    new Node(lightRCNode, Mat4.translation(-15, 0, 0), []),
+    new Node(lightRCNode, Mat4.translation(15, 0, 0), []),
 ]
 
 let flashlightNode = new Node(null, Mat4.scale(0.1, 0.1, 0.1).mul(Mat4.translation(4, -4, -5).mul(Mat4.rotation_yz(0.25).mul(Mat4.rotation_xz(0.25)))), []);
