@@ -18,6 +18,10 @@ class ChunkManager {
         this.vischunks = [];
     }
 
+    setCamera(camera) {
+        this.camera = camera;
+    }
+
     getAllChunksInRange() {
         let cameraX = this.camera.getPosition().x;
         let cameraZ = this.camera.getPosition().z;
@@ -54,10 +58,10 @@ class ChunkManager {
         return points;
     }
     
-    updateVisibleChunks() {
+    updateVisibleChunks(ignorefrustum=false) {
         let vischunks = [];
         this.getAllChunksInRange().forEach(chunk => {
-            if(this.camera.isPointsInFrustum(this.getPointsForChunk(chunk))) {
+            if(this.camera.isPointsInFrustum(this.getPointsForChunk(chunk)) || ignorefrustum) {
                 vischunks.push(chunk);
             }
         });

@@ -811,7 +811,7 @@ let skyboxmesh = Mesh.box(gl);
 let box = Mesh.box(gl);
 
 let cube_map_perspective = Mat4.perspective(Math.PI / 2, 1, 0.1, 1000);
-cube_map_camera = new Camera(new Vec4(0, 0, 0, 0), 0, 0, 0, cube_map_perspective);
+cube_map_camera = new Camera(new Vec4(-480.0, 12.0, 400.0, 0), 0, 0, 0, cube_map_perspective);
 
 let heighttextureloaded = false;
 let heightimage = null;
@@ -966,7 +966,7 @@ function resizeCanvas() {
 function renderTerrain() {
     mainshader.use();
     //let model = Mat4.translation(0.0, -1.0, 0.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_xy( 0.0 )));
-    let model = Mat4.translation(0.0, 4.0, -30.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_yz( -0.25 )));
+    let model = Mat4.translation(-480.0, 12.0, 390.0).mul(Mat4.scale(10, 10, 10).mul(Mat4.rotation_yz( -0.25 )));
 
 
     //let cameramat = camera.getMatrix();
@@ -980,8 +980,73 @@ function renderTerrain() {
     MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);
     MVPBuffer.setData(cameramat.asColumnMajorFloat32Array(), 4 * 16);
 
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    planemesh.render(gl, mainshader.getProgram());
+    //gl.bindTexture(gl.TEXTURE_2D, tex);
+    //planemesh.render(gl, mainshader.getProgram());
+    
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture( gl.TEXTURE_2D, groundtex );
+    
+    bindUnbindLightDataTextures(true);
+    //render terrain for the chunks
+    chunkManager.setCamera(cube_map_camera);
+    cube_map_camera.calcFrustum();
+    chunkManager.updateVisibleChunks(true);
+    let vischunks = chunkManager.getVisibleChunks();
+    vischunks.forEach(chunk => {
+        if (!heightmapmeshes.get(chunk[0], chunk[1]) && heighttextureloaded) {
+            const xpos = (chunk[0] % 10) * 100;
+            const ypos = (chunk[1] % 10) * 100;
+            const xsamplepos = xpos < 0 ? 1000 - Math.abs(xpos) : xpos;
+            const ysamplepos = ypos < 0 ? 1000 - Math.abs(ypos) : ypos;
+            
+            heightmapmeshes.set(chunk[0], chunk[1], [Mesh.fromHeightMap(gl, heightimage, xsamplepos, ysamplepos, 101, 101, 101, 50), xpos, ypos]);
+            console.log("pre loading chunk", xpos, ypos);
+        }
+        heightmapmesh = heightmapmeshes.get(chunk[0], chunk[1]);
+        model = Mat4.translation(heightmapmesh[1], 0.0, heightmapmesh[2]);
+        MVPBuffer.setData(model.asColumnMajorFloat32Array(), 0);        
+        heightmapmesh[0].render(gl, mainshader.getProgram());
+    });
+    
+    grassshader.use();
+    gl.uniform3f( gl.getUniformLocation( grassshader.getProgram(), "camera_position" ), viewpos.x, viewpos.y, viewpos.z );
+    gl.uniform2f(gl.getUniformLocation(grassshader.getProgram(), 'windDir'), 0, 0);
+    gl.uniform1f(gl.getUniformLocation(grassshader.getProgram(), 'grasslength'), grasslength);
+    gl.uniform2f(gl.getUniformLocation(grassshader.getProgram(), "screen_size" ), 2048, 2048 );
+
+    gl.disable( gl.CULL_FACE );
+    vischunks.forEach(chunk => {
+        grass_comp_shader.use();
+        gl.uniform1f( gl.getUniformLocation( grass_comp_shader.getProgram(), "seed" ), chunk[0] * 10 + chunk[1] );
+        gl.uniform2f( gl.getUniformLocation( grass_comp_shader.getProgram(), "chunk" ), chunk[0], chunk[1] );
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, heighttex);
+        grass_comp_shader.dispatch();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        grassshader.use();
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.activeTexture(gl.TEXTURE10); gl.bindTexture(gl.TEXTURE_2D, null);
+        let grasstextures = grass_comp_shader.getRenderTextures();
+        bindUnbindLightDataTextures(true);
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, wind_noise_texture);
+        gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, grasstextures[0]);
+        gl.activeTexture(gl.TEXTURE10); gl.bindTexture(gl.TEXTURE_2D, grasstextures[1]);
+        
+        gl.uniform3f( gl.getUniformLocation( grassshader.getProgram(), "positionoffset" ), chunk[0] * 100, 0, chunk[1] * 100 );
+        if(chunk[2] == 1) {
+            grassmeshlod1.renderInstanced(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
+        } else {
+            grassmesh.renderInstanced(gl, grassshader.getProgram(), grassSizeX * grassSizeY);
+        }
+        
+    });
+    
+    gl.enable( gl.CULL_FACE );
+    gl.activeTexture(gl.TEXTURE0);
+    
+    
+    chunkManager.setCamera(camera);
 }
 
 function renderObjects(time_delta, now, depthonly) {
