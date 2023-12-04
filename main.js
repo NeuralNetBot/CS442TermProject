@@ -238,15 +238,15 @@ let water_fragment_source =
     `#version 300 es
     precision mediump float;
     out vec4 t_f_color;
-    float alpha = 0.9;
+    float alpha = 0.93;
 
     in vec3 v_normal;
     in vec2 v_uv;
     in vec3 v_pos;
 
-    float fresnelPower = 10.0; 
+    float fresnelPower = 0.825; 
     float mat_ambient = 0.25;
-    float mat_diffuse = 1.0;
+    float mat_diffuse = 0.85;
     float mat_specular = 2.0;
     float mat_shininess = 32.0;
     uniform vec3 camera_position;
@@ -276,6 +276,13 @@ let water_fragment_source =
             return 0.0;
         }
     }
+    
+    float fresnel(vec3 view, vec3 norm, float power) {
+        float fresnelFactor = dot(-view, norm);
+        float inversefresnelFactor = 1.0 - fresnelFactor;
+
+        return pow(inversefresnelFactor, power);
+    }
 
     vec3 calcLight(vec3 light_direction, vec3 light_color)
     {
@@ -297,12 +304,14 @@ let water_fragment_source =
         vec3 I = normalize(v_pos - camera_position);
         vec3 R = reflect(I, normalize(v_normal));
         R.xy = -R.xy;
+        
+        float f = fresnel(normalize(lights.spotlight_direction), vec3(0.0, 0.85, 0.0), fresnelPower);
 
         vec3 final = calcLight(-lights.sun_direction, lights.sun_color);
         vec3 spotlightfragdir = normalize(lights.spotlight_position - v_pos);
         final += calcLight(spotlightfragdir, lights.spotlight_color.rgb) * calcSpotlightAttenuation(spotlightfragdir, lights.spotlight_direction, lights.spotlight_color.w);
 
-        t_f_color = vec4(texture(skybox, R).rgb, 1.0) * vec4(0.3, 0.56, 0.95, alpha) * vec4(final, 1.0);
+        t_f_color = vec4(texture(skybox, R).rgb * f, 1.0) * vec4(0.3, 0.56, 0.95, alpha) * vec4(final, 1.0);
     } `;
 
 let depth_vertex_source = 
