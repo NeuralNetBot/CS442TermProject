@@ -13,7 +13,7 @@ def main():
     options.add_argument("--guest")
     options.add_argument("start-maximized")
     browser = webdriver.Chrome(options=options)
-    browser.get("http://localhost:8000//main.html") # change main.html to your filename
+    browser.get("http://localhost:8000//index.html") # change main.html to your filename
     while(1):
         try:
             browser.current_url # tries to see current url of browser, will throw exception if browser is closed
