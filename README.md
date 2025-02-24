@@ -1,5 +1,7 @@
 # CS442TermProject
 
+### live demo
+https://neuralnetbot.github.io/CS442TermProject/index.html
 
 ## night skybox with point lights
 https://github.com/user-attachments/assets/7b193b58-1aa6-45da-ad5e-9f391366ce0e
